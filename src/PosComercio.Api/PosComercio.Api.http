@@ -1,6 +1,22 @@
-@PosComercio.Api_HostAddress = http://localhost:5245
+@host = https://localhost:7259
 
-GET {{PosComercio.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+### 1. Todos los productos
+GET {{host}}/api/productos
 
-###
+### 2. Buscar por texto (marca o nombre)
+GET {{host}}/api/productos?buscar=nike
+
+### 3. ¿Qué tengo en talla 40?
+GET {{host}}/api/productos?talla=40
+
+### 4. Paginación: 2 por página, página 2
+GET {{host}}/api/productos?tamanoPagina=2&pagina=2
+
+### 5. Validación: debe responder 400
+GET {{host}}/api/productos?tamanoPagina=500
+
+### 6. Detalle de un producto
+GET {{host}}/api/productos/1
+
+### 7. No existe: debe responder 404
+GET {{host}}/api/productos/9999
