@@ -13,6 +13,7 @@ using PosComercio.Api.Data.Entities;
 using PosComercio.Api.Services.Auth;
 using PosComercio.Api.Services.Productos;
 using PosComercio.Api.Services.Usuarios;
+using PosComercio.Api.Data.Interceptores;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,8 +26,11 @@ builder.Services.AddProblemDetails();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
 
-builder.Services.AddDbContext<PosComercioDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("PosComercio")));
+builder.Services.AddSingleton<SesionNegocioInterceptor>();
+
+builder.Services.AddDbContext<PosComercioDbContext>((serviceProvider, options) =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("PosComercio"))
+           .AddInterceptors(serviceProvider.GetRequiredService<SesionNegocioInterceptor>()));
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<PosComercioDbContext>("base-de-datos");

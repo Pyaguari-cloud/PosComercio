@@ -1,82 +1,31 @@
 @host = https://localhost:7259
-@vendedorId = 2
 
-### 1. Login del dueño
-# @name login
+### 1. Login de la Zapatería Demo
+# @name zapateria
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
 { "usuarioLogin": "dueno@demo.com", "password": "Demo123*" }
 
-### 2. Usuarios del negocio (tienePin: false en ambos)
-GET {{host}}/api/usuarios
-Authorization: Bearer {{login.response.body.$.accessToken}}
+### 2. Productos de la zapatería: deben ser 6
+GET {{host}}/api/productos
+Authorization: Bearer {{zapateria.response.body.$.accessToken}}
 
-### 3. PIN débil: debe dar 400
-PUT {{host}}/api/usuarios/{{vendedorId}}/pin
-Authorization: Bearer {{login.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "pin": "1234" }
-
-### 4. PIN con letras: debe dar 400 de validación
-PUT {{host}}/api/usuarios/{{vendedorId}}/pin
-Authorization: Bearer {{login.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "pin": "12ab" }
-
-### 5. El dueño asigna PIN al vendedor: 200
-PUT {{host}}/api/usuarios/{{vendedorId}}/pin
-Authorization: Bearer {{login.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "pin": "2580" }
-
-### 6. Login del vendedor con contraseña
-# @name loginVendedor
+### 3. Login del Bazar
+# @name bazar
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
-{ "usuarioLogin": "vendedor@demo.com", "password": "Demo123*" }
+{ "usuarioLogin": "bazar@demo.com", "password": "Demo123*" }
 
-### 7. El vendedor intenta asignar un PIN: debe dar 403
-PUT {{host}}/api/usuarios/{{vendedorId}}/pin
-Authorization: Bearer {{loginVendedor.response.body.$.accessToken}}
-Content-Type: application/json
+### 4. Productos del bazar: solo el cuaderno
+GET {{host}}/api/productos
+Authorization: Bearer {{bazar.response.body.$.accessToken}}
 
-{ "pin": "9753" }
-
-### 8. Desde el dispositivo del dueño, cambiar al vendedor con PIN
-# @name cambio
-POST {{host}}/api/auth/cambiar-usuario
-Authorization: Bearer {{login.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "usuarioId": {{vendedorId}}, "pin": "2580" }
-
-### 9. ¿Quién soy con el token nuevo? Debe decir Vendedor
-GET {{host}}/api/auth/yo
-Authorization: Bearer {{cambio.response.body.$.accessToken}}
-
-### 10. PIN incorrecto: 401
-POST {{host}}/api/auth/cambiar-usuario
-Authorization: Bearer {{login.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "usuarioId": {{vendedorId}}, "pin": "0001" }
-
-### 11. Cambiar al dueño, que aún no tiene PIN: 400
-POST {{host}}/api/auth/cambiar-usuario
-Authorization: Bearer {{cambio.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "usuarioId": 1, "pin": "2580" }
-
-### 12. Producto visto por el DUEÑO: con precioCosto
+### 5. El bazar pide un producto de la zapatería por su id: debe dar 404
 GET {{host}}/api/productos/1
-Authorization: Bearer {{login.response.body.$.accessToken}}
+Authorization: Bearer {{bazar.response.body.$.accessToken}}
 
-### 13. Producto visto por el VENDEDOR: sin precioCosto
-GET {{host}}/api/productos/1
-Authorization: Bearer {{cambio.response.body.$.accessToken}}
+### 6. Usuarios del bazar: solo la dueña del bazar
+GET {{host}}/api/usuarios
+Authorization: Bearer {{bazar.response.body.$.accessToken}}
