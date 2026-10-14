@@ -1,0 +1,23 @@
+﻿namespace PosComercio.Api.Common.Seguridad;
+
+/// <summary>Nombres de los datos (claims) que viajan dentro del token.</summary>
+public static class ClaimsPos
+{
+    public const string UsuarioId = "sub";
+    public const string NegocioId = "negocio_id";
+    public const string Nombre = "name";
+    public const string Rol = "role";
+}
+
+/// <summary>Roles válidos. Coinciden con el CHECK de la tabla Usuarios.</summary>
+public static class Roles
+{
+    public const string AdminSaaS = "AdminSaaS";
+    public const string Dueno = "Dueno";
+    public const string Vendedor = "Vendedor";
+}
+
+public static class PoliticasRateLimit
+{
+    public const string Login = "login";
+}

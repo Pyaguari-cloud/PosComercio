@@ -1,22 +1,63 @@
 @host = https://localhost:7259
 
-### 1. Todos los productos
+### 1. Sin token: ahora debe dar 401
 GET {{host}}/api/productos
 
-### 2. Buscar por texto (marca o nombre)
-GET {{host}}/api/productos?buscar=nike
+### 2. Login correcto del dueño
+# @name login
+POST {{host}}/api/auth/login
+Content-Type: application/json
 
-### 3. ¿Qué tengo en talla 40?
+{
+  "usuarioLogin": "dueno@demo.com",
+  "password": "Demo123*"
+}
+
+### 3. ¿Quién soy? (usa el token del login anterior)
+GET {{host}}/api/auth/yo
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 4. Productos con token: ahora sí funciona
 GET {{host}}/api/productos?talla=40
+Authorization: Bearer {{login.response.body.$.accessToken}}
 
-### 4. Paginación: 2 por página, página 2
-GET {{host}}/api/productos?tamanoPagina=2&pagina=2
+### 5. Contraseña incorrecta: 401 con mensaje y código
+POST {{host}}/api/auth/login
+Content-Type: application/json
 
-### 5. Validación: debe responder 400
-GET {{host}}/api/productos?tamanoPagina=500
+{
+  "usuarioLogin": "dueno@demo.com",
+  "password": "otraCosa"
+}
 
-### 6. Detalle de un producto
-GET {{host}}/api/productos/1
+### 6. Usuario que no existe: MISMO mensaje que la prueba 5
+POST {{host}}/api/auth/login
+Content-Type: application/json
 
-### 7. No existe: debe responder 404
-GET {{host}}/api/productos/9999
+{
+  "usuarioLogin": "noexiste@demo.com",
+  "password": "Demo123*"
+}
+
+### 7. Validación: campos vacíos, debe dar 400
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "usuarioLogin": "",
+  "password": ""
+}
+
+### 8. Login del vendedor
+# @name loginVendedor
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "usuarioLogin": "vendedor@demo.com",
+  "password": "Demo123*"
+}
+
+### 9. ¿Quién soy? como vendedor
+GET {{host}}/api/auth/yo
+Authorization: Bearer {{loginVendedor.response.body.$.accessToken}}

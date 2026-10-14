@@ -7,7 +7,7 @@ namespace PosComercio.Api.Controllers;
 
 [ApiController]
 [Route("api/productos")]
-public sealed class ProductosController(IProductoService productoService) : ControllerBase
+public sealed class ProductosController(IProductoService productoService) : PosControllerBase
 {
     /// <summary>Busca productos por texto, talla o categoría, con paginación.</summary>
     [HttpGet]
