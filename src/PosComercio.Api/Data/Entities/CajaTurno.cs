@@ -45,9 +45,9 @@ public partial class CajaTurno
 
     public virtual ICollection<CajaMovimiento> CajaMovimientos { get; set; } = new List<CajaMovimiento>();
 
-    public virtual Usuario Usuario { get; set; } = null!;
+    public virtual Usuario UsuarioAbre { get; set; } = null!;
 
-    public virtual Usuario? UsuarioNavigation { get; set; }
+    public virtual Usuario? UsuarioCierra { get; set; }
 
     public virtual ICollection<Venta> Venta { get; set; } = new List<Venta>();
 }

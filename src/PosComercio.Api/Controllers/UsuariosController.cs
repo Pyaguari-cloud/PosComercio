@@ -21,6 +21,6 @@ public sealed class UsuariosController(IUsuarioService usuarioService) : PosCont
         int usuarioId, AsignarPinRequest request, CancellationToken ct)
     {
         var resultado = await usuarioService.AsignarPinAsync(usuarioId, request.Pin, ct);
-        return resultado.Exito ? Ok(resultado.Valor) : Problema(resultado.Error);
+        return Responder(resultado);
     }
 }

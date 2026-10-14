@@ -20,4 +20,8 @@ public abstract class PosControllerBase : ControllerBase
 
         return new ObjectResult(problema) { StatusCode = error.StatusHttp };
     }
+
+    /// <summary>Convierte un Resultado en 200 OK o en el error correspondiente.</summary>
+    protected ActionResult<T> Responder<T>(Resultado<T> resultado) =>
+        resultado.Exito ? Ok(resultado.Valor) : Problema(resultado.Error);
 }

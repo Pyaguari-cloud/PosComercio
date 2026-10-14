@@ -96,13 +96,13 @@ public partial class PosComercioDbContext : DbContext
             entity.Property(e => e.TotalTransferencias).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.TotalVentas).HasColumnType("decimal(18, 2)");
 
-            entity.HasOne(d => d.Usuario).WithMany(p => p.CajaTurnoUsuarios)
+            entity.HasOne(d => d.UsuarioAbre).WithMany(p => p.CajaTurnoUsuarios)
                 .HasPrincipalKey(p => new { p.NegocioId, p.UsuarioId })
                 .HasForeignKey(d => new { d.NegocioId, d.UsuarioAbreId })
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Turnos_Abre");
 
-            entity.HasOne(d => d.UsuarioNavigation).WithMany(p => p.CajaTurnoUsuarioNavigations)
+            entity.HasOne(d => d.UsuarioCierra).WithMany(p => p.CajaTurnoUsuarioNavigations)
                 .HasPrincipalKey(p => new { p.NegocioId, p.UsuarioId })
                 .HasForeignKey(d => new { d.NegocioId, d.UsuarioCierraId })
                 .HasConstraintName("FK_Turnos_Cierra");

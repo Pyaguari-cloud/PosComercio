@@ -14,6 +14,8 @@ using PosComercio.Api.Services.Auth;
 using PosComercio.Api.Services.Productos;
 using PosComercio.Api.Services.Usuarios;
 using PosComercio.Api.Data.Interceptores;
+using PosComercio.Api.Services.Caja;
+using PosComercio.Api.Services.Negocios;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -116,6 +118,9 @@ builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<UsuarioAc
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProductoService, ProductoService>();
 builder.Services.AddScoped<IUsuarioService, UsuarioService>();
+
+builder.Services.AddScoped<IConfiguracionNegocioService, ConfiguracionNegocioService>();
+builder.Services.AddScoped<ICajaService, CajaService>();
 
 var app = builder.Build();
 

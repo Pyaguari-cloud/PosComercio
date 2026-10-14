@@ -21,7 +21,7 @@ public sealed class AuthController(
     public async Task<ActionResult<LoginResponse>> Login(LoginRequest request, CancellationToken ct)
     {
         var resultado = await authService.LoginAsync(request, ct);
-        return resultado.Exito ? Ok(resultado.Valor) : Problema(resultado.Error);
+        return Responder(resultado);
     }
 
     /// <summary>
@@ -33,7 +33,7 @@ public sealed class AuthController(
     public async Task<ActionResult<LoginResponse>> CambiarUsuario(CambiarUsuarioRequest request, CancellationToken ct)
     {
         var resultado = await authService.CambiarUsuarioPorPinAsync(request, ct);
-        return resultado.Exito ? Ok(resultado.Valor) : Problema(resultado.Error);
+        return Responder(resultado);
     }
 
     /// <summary>Devuelve los datos del usuario dueño del token. Útil para probar.</summary>

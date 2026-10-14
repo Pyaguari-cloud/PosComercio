@@ -1,31 +1,108 @@
 @host = https://localhost:7259
 
-### 1. Login de la Zapatería Demo
-# @name zapateria
+### 1. Login dueño
+# @name dueno
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
 { "usuarioLogin": "dueno@demo.com", "password": "Demo123*" }
 
-### 2. Productos de la zapatería: deben ser 6
-GET {{host}}/api/productos
-Authorization: Bearer {{zapateria.response.body.$.accessToken}}
-
-### 3. Login del Bazar
-# @name bazar
+### 2. Login vendedor
+# @name vendedor
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
-{ "usuarioLogin": "bazar@demo.com", "password": "Demo123*" }
+{ "usuarioLogin": "vendedor@demo.com", "password": "Demo123*" }
 
-### 4. Productos del bazar: solo el cuaderno
-GET {{host}}/api/productos
-Authorization: Bearer {{bazar.response.body.$.accessToken}}
+### 3. Caja vista por el VENDEDOR: sin efectivoEsperado ni ganancia (cierre ciego)
+GET {{host}}/api/caja/actual
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
 
-### 5. El bazar pide un producto de la zapatería por su id: debe dar 404
-GET {{host}}/api/productos/1
-Authorization: Bearer {{bazar.response.body.$.accessToken}}
+### 4. Caja vista por el DUEÑO: efectivoEsperado 48.50 y ganancia 20.00
+GET {{host}}/api/caja/actual
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
 
-### 6. Usuarios del bazar: solo la dueña del bazar
-GET {{host}}/api/usuarios
-Authorization: Bearer {{bazar.response.body.$.accessToken}}
+### 5. Abrir otra caja: 409 (ya hay una abierta)
+POST {{host}}/api/caja/abrir
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "montoInicial": 20 }
+
+### 6. Gasto de $2 (con ClientGuid fijo)
+POST {{host}}/api/caja/movimientos
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "tipo": "GASTO",
+  "monto": 2.00,
+  "concepto": "Almuerzo del cargador",
+  "clientGuid": "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
+}
+
+### 7. El MISMO gasto otra vez: debe devolver el mismo cajaMovimientoId (idempotencia)
+POST {{host}}/api/caja/movimientos
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "tipo": "GASTO",
+  "monto": 2.00,
+  "concepto": "Almuerzo del cargador",
+  "clientGuid": "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
+}
+
+### 8. El vendedor intenta un retiro: 403
+POST {{host}}/api/caja/movimientos
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "tipo": "RETIRO", "monto": 10, "concepto": "Retiro" }
+
+### 9. Gasto mayor al efectivo en caja: 422
+POST {{host}}/api/caja/movimientos
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "tipo": "GASTO", "monto": 1000, "concepto": "Algo caro" }
+
+### 10. Tipo inventado: 400 de validación
+POST {{host}}/api/caja/movimientos
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "tipo": "PROPINA", "monto": 5, "concepto": "Prueba" }
+
+### 11. El vendedor cierra contando $46.00 (faltan $0.50)
+POST {{host}}/api/caja/cerrar
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "efectivoContado": 46.00, "nota": "Cierre de prueba" }
+
+### 12. Cerrar otra vez: 409 (no hay caja abierta)
+POST {{host}}/api/caja/cerrar
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "efectivoContado": 46.00 }
+
+### 13. Estado: sin caja abierta, con monto sugerido 20
+GET {{host}}/api/caja/actual
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+
+### 14. Historial como DUEÑO: con ganancia
+GET {{host}}/api/caja/cierres
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+
+### 15. Historial como VENDEDOR: 403
+GET {{host}}/api/caja/cierres
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+
+### 16. Abrir una caja nueva
+POST {{host}}/api/caja/abrir
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "montoInicial": 20 }
