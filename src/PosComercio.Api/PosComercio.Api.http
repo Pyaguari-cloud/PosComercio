@@ -1,63 +1,82 @@
 @host = https://localhost:7259
+@vendedorId = 2
 
-### 1. Sin token: ahora debe dar 401
-GET {{host}}/api/productos
-
-### 2. Login correcto del dueño
+### 1. Login del dueño
 # @name login
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
-{
-  "usuarioLogin": "dueno@demo.com",
-  "password": "Demo123*"
-}
+{ "usuarioLogin": "dueno@demo.com", "password": "Demo123*" }
 
-### 3. ¿Quién soy? (usa el token del login anterior)
-GET {{host}}/api/auth/yo
+### 2. Usuarios del negocio (tienePin: false en ambos)
+GET {{host}}/api/usuarios
 Authorization: Bearer {{login.response.body.$.accessToken}}
 
-### 4. Productos con token: ahora sí funciona
-GET {{host}}/api/productos?talla=40
+### 3. PIN débil: debe dar 400
+PUT {{host}}/api/usuarios/{{vendedorId}}/pin
 Authorization: Bearer {{login.response.body.$.accessToken}}
-
-### 5. Contraseña incorrecta: 401 con mensaje y código
-POST {{host}}/api/auth/login
 Content-Type: application/json
 
-{
-  "usuarioLogin": "dueno@demo.com",
-  "password": "otraCosa"
-}
+{ "pin": "1234" }
 
-### 6. Usuario que no existe: MISMO mensaje que la prueba 5
-POST {{host}}/api/auth/login
+### 4. PIN con letras: debe dar 400 de validación
+PUT {{host}}/api/usuarios/{{vendedorId}}/pin
+Authorization: Bearer {{login.response.body.$.accessToken}}
 Content-Type: application/json
 
-{
-  "usuarioLogin": "noexiste@demo.com",
-  "password": "Demo123*"
-}
+{ "pin": "12ab" }
 
-### 7. Validación: campos vacíos, debe dar 400
-POST {{host}}/api/auth/login
+### 5. El dueño asigna PIN al vendedor: 200
+PUT {{host}}/api/usuarios/{{vendedorId}}/pin
+Authorization: Bearer {{login.response.body.$.accessToken}}
 Content-Type: application/json
 
-{
-  "usuarioLogin": "",
-  "password": ""
-}
+{ "pin": "2580" }
 
-### 8. Login del vendedor
+### 6. Login del vendedor con contraseña
 # @name loginVendedor
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
-{
-  "usuarioLogin": "vendedor@demo.com",
-  "password": "Demo123*"
-}
+{ "usuarioLogin": "vendedor@demo.com", "password": "Demo123*" }
 
-### 9. ¿Quién soy? como vendedor
-GET {{host}}/api/auth/yo
+### 7. El vendedor intenta asignar un PIN: debe dar 403
+PUT {{host}}/api/usuarios/{{vendedorId}}/pin
 Authorization: Bearer {{loginVendedor.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "pin": "9753" }
+
+### 8. Desde el dispositivo del dueño, cambiar al vendedor con PIN
+# @name cambio
+POST {{host}}/api/auth/cambiar-usuario
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "usuarioId": {{vendedorId}}, "pin": "2580" }
+
+### 9. ¿Quién soy con el token nuevo? Debe decir Vendedor
+GET {{host}}/api/auth/yo
+Authorization: Bearer {{cambio.response.body.$.accessToken}}
+
+### 10. PIN incorrecto: 401
+POST {{host}}/api/auth/cambiar-usuario
+Authorization: Bearer {{login.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "usuarioId": {{vendedorId}}, "pin": "0001" }
+
+### 11. Cambiar al dueño, que aún no tiene PIN: 400
+POST {{host}}/api/auth/cambiar-usuario
+Authorization: Bearer {{cambio.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "usuarioId": 1, "pin": "2580" }
+
+### 12. Producto visto por el DUEÑO: con precioCosto
+GET {{host}}/api/productos/1
+Authorization: Bearer {{login.response.body.$.accessToken}}
+
+### 13. Producto visto por el VENDEDOR: sin precioCosto
+GET {{host}}/api/productos/1
+Authorization: Bearer {{cambio.response.body.$.accessToken}}

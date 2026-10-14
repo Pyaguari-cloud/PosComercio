@@ -16,4 +16,5 @@ public sealed record VarianteDto(
     int StockBodega,
     string? UbicacionBodega,
     string? ReferenciaBodega,
-    string? ReferenciaPercha);
+    string? ReferenciaPercha,
+    decimal? PrecioCosto);

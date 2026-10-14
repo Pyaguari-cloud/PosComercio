@@ -17,7 +17,15 @@ public static class Roles
     public const string Vendedor = "Vendedor";
 }
 
+/// <summary>Nombres de las políticas de límite de peticiones.</summary>
 public static class PoliticasRateLimit
 {
     public const string Login = "login";
+    public const string Pin = "pin";
+}
+
+/// <summary>Políticas de autorización (quién puede hacer qué).</summary>
+public static class Politicas
+{
+    public const string SoloDueno = "SoloDueno";
 }

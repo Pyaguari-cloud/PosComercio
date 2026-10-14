@@ -12,12 +12,15 @@ using PosComercio.Api.Data;
 using PosComercio.Api.Data.Entities;
 using PosComercio.Api.Services.Auth;
 using PosComercio.Api.Services.Productos;
+using PosComercio.Api.Services.Usuarios;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ---------- Infraestructura ----------
-builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+        options.JsonSerializerOptions.DefaultIgnoreCondition =
+            System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull); builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
@@ -27,6 +30,13 @@ builder.Services.AddDbContext<PosComercioDbContext>(options =>
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<PosComercioDbContext>("base-de-datos");
+
+builder.Services.AddAuthorizationBuilder()
+    .SetFallbackPolicy(new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build())
+    .AddPolicy(Politicas.SoloDueno, policy => policy.RequireRole(Roles.Dueno));
+
 
 // ---------- Autenticación (JWT) ----------
 builder.Services.AddOptions<JwtOptions>()
@@ -78,6 +88,16 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0
             }));
+    // PIN: 5 intentos por minuto, por negocio + dispositivo (IP)
+    options.AddPolicy(PoliticasRateLimit.Pin, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"{httpContext.User.FindFirst(ClaimsPos.NegocioId)?.Value}:{httpContext.Connection.RemoteIpAddress}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
 });
 
 // ---------- Servicios de la aplicación ----------
@@ -91,6 +111,7 @@ builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<UsuarioAc
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProductoService, ProductoService>();
+builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 
 var app = builder.Build();
 

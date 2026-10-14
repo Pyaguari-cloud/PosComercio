@@ -24,6 +24,18 @@ public sealed class AuthController(
         return resultado.Exito ? Ok(resultado.Valor) : Problema(resultado.Error);
     }
 
+    /// <summary>
+    /// Cambia de usuario en el mismo dispositivo usando el PIN.
+    /// Requiere un token válido de alguien del mismo negocio.
+    /// </summary>
+    [HttpPost("cambiar-usuario")]
+    [EnableRateLimiting(PoliticasRateLimit.Pin)]
+    public async Task<ActionResult<LoginResponse>> CambiarUsuario(CambiarUsuarioRequest request, CancellationToken ct)
+    {
+        var resultado = await authService.CambiarUsuarioPorPinAsync(request, ct);
+        return resultado.Exito ? Ok(resultado.Valor) : Problema(resultado.Error);
+    }
+
     /// <summary>Devuelve los datos del usuario dueño del token. Útil para probar.</summary>
     [HttpGet("yo")]
     public ActionResult<SesionActualDto> Yo() =>

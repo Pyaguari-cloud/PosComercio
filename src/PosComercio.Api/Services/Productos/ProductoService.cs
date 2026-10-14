@@ -5,10 +5,11 @@ using PosComercio.Api.Data;
 using PosComercio.Api.Data.Entities;
 using PosComercio.Api.Dtos.Comunes;
 using PosComercio.Api.Dtos.Productos;
+using PosComercio.Api.Common.Seguridad;
 
 namespace PosComercio.Api.Services.Productos;
 
-public sealed class ProductoService(PosComercioDbContext db, ITenantContext tenant) : IProductoService
+public sealed class ProductoService(PosComercioDbContext db, ITenantContext tenant, IUsuarioActual usuarioActual) : IProductoService
 {
     public async Task<PaginaDto<ProductoDto>> BuscarAsync(BuscarProductosQuery query, CancellationToken ct)
     {
@@ -41,7 +42,7 @@ public sealed class ProductoService(PosComercioDbContext db, ITenantContext tena
             .OrderBy(p => p.Nombre)
             .Skip((query.Pagina - 1) * query.TamanoPagina)
             .Take(query.TamanoPagina)
-            .Select(AProductoDto)
+            .Select(AProductoDto(usuarioActual.EsDueno))
             .ToListAsync(ct);
 
         return new PaginaDto<ProductoDto>(items, query.Pagina, query.TamanoPagina, total);
@@ -50,7 +51,7 @@ public sealed class ProductoService(PosComercioDbContext db, ITenantContext tena
     public Task<ProductoDto?> ObtenerPorIdAsync(int productoId, CancellationToken ct) =>
         ProductosDelNegocio()
             .Where(p => p.ProductoId == productoId)
-            .Select(AProductoDto)
+            .Select(AProductoDto(usuarioActual.EsDueno))
             .FirstOrDefaultAsync(ct);
 
     /// <summary>
@@ -67,7 +68,7 @@ public sealed class ProductoService(PosComercioDbContext db, ITenantContext tena
     /// Es una Expression (no una función normal) para que EF Core la traduzca a SQL
     /// y traiga solo las columnas necesarias.
     /// </summary>
-    private static readonly Expression<Func<Producto, ProductoDto>> AProductoDto = p =>
+    private static Expression<Func<Producto, ProductoDto>> AProductoDto(bool verCostos) => p =>
         new ProductoDto(
             p.ProductoId,
             p.Nombre,
@@ -95,6 +96,7 @@ public sealed class ProductoService(PosComercioDbContext db, ITenantContext tena
                     v.StockBodega,
                     v.UbicacionesBodega != null ? v.UbicacionesBodega.Nombre : null,
                     v.ReferenciaBodega,
-                    v.ReferenciaPercha))
+                    v.ReferenciaPercha,
+                    verCostos ? v.PrecioCosto : null))
                 .ToList());
 }
