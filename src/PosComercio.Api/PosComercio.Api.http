@@ -1,78 +1,197 @@
 @host = https://localhost:7259
 
-### 1. Login dueño
+### 1a. Login dueño
 # @name dueno
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
 { "usuarioLogin": "dueno@demo.com", "password": "Demo123*" }
 
-### 2. Login vendedor
+### 1b. Login vendedor
 # @name vendedor
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
 { "usuarioLogin": "vendedor@demo.com", "password": "Demo123*" }
 
-### 3. Cuaderno de HOY visto por el dueño (con ganancia)
-GET {{host}}/api/ventas
-Authorization: Bearer {{dueno.response.body.$.accessToken}}
-
-### 4. Cuaderno de HOY visto por el vendedor (sin ganancia)
-GET {{host}}/api/ventas
+### 2. Categorías
+GET {{host}}/api/categorias
 Authorization: Bearer {{vendedor.response.body.$.accessToken}}
 
-### 5. Cuaderno de AYER: vacío
-GET {{host}}/api/ventas?fecha=2026-10-13
-Authorization: Bearer {{dueno.response.body.$.accessToken}}
-
-### 6. El vendedor anula SIN PIN → 403 autorizacion.requerida
-POST {{host}}/api/ventas/3/anular
+### 3. Ubicaciones
+GET {{host}}/api/ubicaciones
 Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
 
-{ "motivo": "El cliente se arrepintió" }
-
-### 7. Motivo demasiado corto → 400
-POST {{host}}/api/ventas/3/anular
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "motivo": "no", "pinAutorizacion": "1357" }
-
-### 8. El vendedor anula CON el PIN del dueño → 200, estado ANULADA
-POST {{host}}/api/ventas/3/anular
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "motivo": "El cliente se arrepintió", "pinAutorizacion": "1357" }
-
-### 9. Anular otra vez → 409 ventas.ya_anulada
-POST {{host}}/api/ventas/3/anular
+### 4. Crear categoría (dueño) → 200
+POST {{host}}/api/categorias
 Authorization: Bearer {{dueno.response.body.$.accessToken}}
 Content-Type: application/json
 
-{ "motivo": "Intento duplicado" }
+{ "nombre": "Deportivos", "colorHex": "#10b981" }
 
-### 10. Venta de la caja YA CERRADA → 409 ventas.fuera_de_turno
-POST {{host}}/api/ventas/1/anular
+### 5. La misma categoría otra vez (en minúsculas) → 409
+POST {{host}}/api/categorias
 Authorization: Bearer {{dueno.response.body.$.accessToken}}
 Content-Type: application/json
 
-{ "motivo": "Prueba de venta antigua" }
+{ "nombre": "deportivos", "colorHex": "#10b981" }
 
-### 11. La Sandalia 36 recuperó su stock en percha (debe volver a 2)
-GET {{host}}/api/productos?buscar=sandalia
+### 6. El vendedor intenta crear una categoría → 403
+POST {{host}}/api/categorias
 Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+Content-Type: application/json
 
-### 12. Caja: la venta anulada ya no suma
-GET {{host}}/api/caja/actual
-Authorization: Bearer {{dueno.response.body.$.accessToken}}
+{ "nombre": "Sandalias", "colorHex": "#F59E0B" }
 
-### 13. Cuaderno de hoy después de la anulación
-GET {{host}}/api/ventas
+### 7. Crear producto CON tallas → 201
+# @name crear
+POST {{host}}/api/productos
 Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
 
-### 14. Cuaderno filtrado por el vendedor
-GET {{host}}/api/ventas?usuarioId=2
+{
+  "nombre": "Zapatilla Casual",
+  "marca": "Puma",
+  "categoriaId": 1,
+  "tieneVariantes": true,
+  "variantes": [
+    { "talla": "38", "color": "Blanco", "codigoSku": "pu-cas-38-bla", "precioCosto": 30, "precioVentaLista": 55, "precioMinimoRegateo": 48,
+      "stockPercha": 1, "stockBodega": 2, "stockMinimoAlerta": 1, "ubicacionBodegaId": 1,
+      "referenciaBodega": "Cajas blancas, fila 3", "referenciaPercha": "Pared central, repisa 3" },
+    { "talla": "39", "color": "Blanco", "codigoSku": "pu-cas-39-bla", "precioCosto": 30, "precioVentaLista": 55, "precioMinimoRegateo": 48,
+      "stockPercha": 0, "stockBodega": 3, "stockMinimoAlerta": 1, "ubicacionBodegaId": 1 },
+    { "talla": "40", "color": "Blanco", "codigoSku": "pu-cas-40-bla", "precioCosto": 30, "precioVentaLista": 55, "precioMinimoRegateo": 48,
+      "stockPercha": 2, "stockBodega": 0, "stockMinimoAlerta": 1, "ubicacionBodegaId": 1 }
+  ]
+}
+
+### 8. Crear producto SIMPLE (sin tallas) → 201
+# @name cartera
+POST {{host}}/api/productos
 Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "nombre": "Cartera Dama",
+  "marca": "Genérico",
+  "categoriaId": 4,
+  "tieneVariantes": false,
+  "variantes": [
+    { "precioCosto": 12, "precioVentaLista": 25, "precioMinimoRegateo": 20,
+      "stockPercha": 2, "stockBodega": 3, "stockMinimoAlerta": 1, "referenciaPercha": "Colgadas junto a la caja" }
+  ]
+}
+
+### 9. Producto simple con DOS variantes → 400
+POST {{host}}/api/productos
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "nombre": "Billetera", "tieneVariantes": false,
+  "variantes": [
+    { "precioCosto": 5, "precioVentaLista": 10, "precioMinimoRegateo": 8, "stockPercha": 1, "stockBodega": 0, "stockMinimoAlerta": 1 },
+    { "precioCosto": 5, "precioVentaLista": 10, "precioMinimoRegateo": 8, "stockPercha": 1, "stockBodega": 0, "stockMinimoAlerta": 1 }
+  ]
+}
+
+### 10. Mínimo mayor que la lista → 400
+POST {{host}}/api/productos
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "nombre": "Correa", "tieneVariantes": false,
+  "variantes": [ { "precioCosto": 5, "precioVentaLista": 10, "precioMinimoRegateo": 12, "stockPercha": 1, "stockBodega": 0, "stockMinimoAlerta": 1 } ]
+}
+
+### 11. Talla repetida en la lista → 400
+POST {{host}}/api/productos
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "nombre": "Botín", "tieneVariantes": true,
+  "variantes": [
+    { "talla": "40", "color": "Negro", "precioCosto": 20, "precioVentaLista": 40, "precioMinimoRegateo": 35, "stockPercha": 1, "stockBodega": 0, "stockMinimoAlerta": 1 },
+    { "talla": "40", "color": "negro", "precioCosto": 20, "precioVentaLista": 40, "precioMinimoRegateo": 35, "stockPercha": 1, "stockBodega": 0, "stockMinimoAlerta": 1 }
+  ]
+}
+
+### 12. SKU que ya usa otro producto → 409
+POST {{host}}/api/productos
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "nombre": "Copia", "tieneVariantes": true,
+  "variantes": [ { "talla": "40", "codigoSku": "NK-URB-40-NEG", "precioCosto": 20, "precioVentaLista": 40, "precioMinimoRegateo": 35, "stockPercha": 0, "stockBodega": 0, "stockMinimoAlerta": 1 } ]
+}
+
+### 13. Categoría que no existe → 404
+POST {{host}}/api/productos
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "nombre": "Fantasma", "categoriaId": 999, "tieneVariantes": false,
+  "variantes": [ { "precioCosto": 1, "precioVentaLista": 2, "precioMinimoRegateo": 2, "stockPercha": 0, "stockBodega": 0, "stockMinimoAlerta": 1 } ]
+}
+
+### 14. Agregar la talla 41 a la Zapatilla Casual → 200
+POST {{host}}/api/productos/{{crear.response.body.$.productoId}}/variantes
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "variantes": [
+    { "talla": "41", "color": "Blanco", "codigoSku": "PU-CAS-41-BLA", "precioCosto": 30, "precioVentaLista": 55, "precioMinimoRegateo": 48,
+      "stockPercha": 0, "stockBodega": 2, "stockMinimoAlerta": 1, "ubicacionBodegaId": 1 }
+  ]
+}
+
+### 15. Agregar la talla 40 Blanco, que ya existe → 409
+POST {{host}}/api/productos/{{crear.response.body.$.productoId}}/variantes
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "variantes": [
+    { "talla": "40", "color": "blanco", "precioCosto": 30, "precioVentaLista": 55, "precioMinimoRegateo": 48, "stockPercha": 1, "stockBodega": 0, "stockMinimoAlerta": 1 }
+  ]
+}
+
+### 16. Agregar variantes a la cartera (producto simple) → 409
+POST {{host}}/api/productos/{{cartera.response.body.$.productoId}}/variantes
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "variantes": [
+    { "color": "Rojo", "precioCosto": 12, "precioVentaLista": 25, "precioMinimoRegateo": 20, "stockPercha": 1, "stockBodega": 0, "stockMinimoAlerta": 1 }
+  ]
+}
+
+### 17. Subir el precio de la talla 38: lista 58, mínimo 50 → 200
+PUT {{host}}/api/productos/variantes/{{crear.response.body.$.variantes[0].varianteId}}
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "codigoSku": "PU-CAS-38-BLA", "precioCosto": 30, "precioVentaLista": 58, "precioMinimoRegateo": 50,
+  "stockMinimoAlerta": 1, "ubicacionBodegaId": 1,
+  "referenciaBodega": "Cajas blancas, fila 3", "referenciaPercha": "Pared central, repisa 3", "activo": true
+}
+
+### 18. El vendedor intenta cambiar precios → 403
+PUT {{host}}/api/productos/variantes/{{crear.response.body.$.variantes[0].varianteId}}
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "precioCosto": 1, "precioVentaLista": 2, "precioMinimoRegateo": 1, "stockMinimoAlerta": 1, "activo": true
+}
+
+### 19. El vendedor busca la talla 39: aparece la Zapatilla Casual (solo en bodega, sin precioCosto)
+GET {{host}}/api/productos?talla=39
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
