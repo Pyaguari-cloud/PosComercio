@@ -163,13 +163,7 @@ public sealed class CajaService(
         // Bloquea la fila del turno hasta el final de la transacción.
         // En la Fase 5, las ventas también leerán el turno con este bloqueo:
         // así, una venta y un cierre nunca ocurren "a la vez".
-        var turno = await db.CajaTurnos
-            .FromSql($"""
-                SELECT * FROM dbo.CajaTurnos WITH (UPDLOCK, ROWLOCK)
-                WHERE NegocioId = {tenant.NegocioId} AND Estado = {EstadosTurno.Abierto}
-                """)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(ct);
+        var turno = await db.BloquearTurnoAbiertoAsync(tenant.NegocioId, ct);
 
         if (turno is null)
         {

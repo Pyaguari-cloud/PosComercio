@@ -339,12 +339,12 @@ public partial class PosComercioDbContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Ventas_Turno");
 
-            entity.HasOne(d => d.Usuario).WithMany(p => p.VentaUsuarios)
+            entity.HasOne(d => d.UsuarioAnula).WithMany(p => p.VentaUsuarios)
                 .HasPrincipalKey(p => new { p.NegocioId, p.UsuarioId })
                 .HasForeignKey(d => new { d.NegocioId, d.UsuarioAnulaId })
                 .HasConstraintName("FK_Ventas_UsuarioAnula");
 
-            entity.HasOne(d => d.UsuarioNavigation).WithMany(p => p.VentaUsuarioNavigations)
+            entity.HasOne(d => d.Vendedor).WithMany(p => p.VentaUsuarioNavigations)
                 .HasPrincipalKey(p => new { p.NegocioId, p.UsuarioId })
                 .HasForeignKey(d => new { d.NegocioId, d.UsuarioId })
                 .OnDelete(DeleteBehavior.ClientSetNull)
@@ -375,7 +375,7 @@ public partial class PosComercioDbContext : DbContext
                 .HasComputedColumnSql("([Cantidad]*[PrecioVendidoUnitario])", false)
                 .HasColumnType("decimal(29, 2)");
 
-            entity.HasOne(d => d.Usuario).WithMany(p => p.VentaDetalles)
+            entity.HasOne(d => d.AutorizadoPor).WithMany(p => p.VentaDetalles)
                 .HasPrincipalKey(p => new { p.NegocioId, p.UsuarioId })
                 .HasForeignKey(d => new { d.NegocioId, d.AutorizadoPorUsuarioId })
                 .HasConstraintName("FK_Detalles_Autoriza");

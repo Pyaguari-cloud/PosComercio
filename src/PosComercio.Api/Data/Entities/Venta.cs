@@ -37,9 +37,9 @@ public partial class Venta
 
     public virtual Negocio Negocio { get; set; } = null!;
 
-    public virtual Usuario? Usuario { get; set; }
+    public virtual Usuario? UsuarioAnula { get; set; }
 
-    public virtual Usuario UsuarioNavigation { get; set; } = null!;
+    public virtual Usuario Vendedor { get; set; } = null!;
 
     public virtual ICollection<VentaDetalle> VentaDetalles { get; set; } = new List<VentaDetalle>();
 

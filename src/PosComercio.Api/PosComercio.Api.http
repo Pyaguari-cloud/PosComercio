@@ -106,3 +106,156 @@ Authorization: Bearer {{vendedor.response.body.$.accessToken}}
 Content-Type: application/json
 
 { "montoInicial": 20 }
+
+
+@host = https://localhost:7259
+
+### 1. Login dueño
+# @name dueno
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "usuarioLogin": "dueno@demo.com", "password": "Demo123*" }
+
+### 2. Login vendedor
+# @name vendedor
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "usuarioLogin": "vendedor@demo.com", "password": "Demo123*" }
+
+### 3. Venta simple: Escolar 36 a $22 (lista 25, mínimo 20), efectivo → 201
+POST {{host}}/api/ventas
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "items": [ { "varianteId": 9, "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 22.00 } ],
+  "pagos": [ { "metodoPago": "EFECTIVO", "monto": 22.00 } ]
+}
+
+### 4. Sandalia 36 a $10 (mínimo $12) SIN PIN → 403 autorizacion.requerida
+POST {{host}}/api/ventas
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "items": [ { "varianteId": 13, "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 10.00 } ],
+  "pagos": [ { "metodoPago": "EFECTIVO", "monto": 10.00 } ]
+}
+
+### 5. El dueño se asigna su PIN (1357)
+PUT {{host}}/api/usuarios/1/pin
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "pin": "1357" }
+
+### 6. Misma venta CON el PIN del dueño → 201, con autorizadoPor
+POST {{host}}/api/ventas
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "items": [ { "varianteId": 13, "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 10.00 } ],
+  "pagos": [ { "metodoPago": "EFECTIVO", "monto": 10.00 } ],
+  "pinAutorizacion": "1357"
+}
+
+### 7. PIN del dueño incorrecto → 403 autorizacion.pin_incorrecto
+POST {{host}}/api/ventas
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "items": [ { "varianteId": 13, "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 10.00 } ],
+  "pagos": [ { "metodoPago": "EFECTIVO", "monto": 10.00 } ],
+  "pinAutorizacion": "9999"
+}
+
+### 8. Los pagos no cuadran → 422
+POST {{host}}/api/ventas
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "items": [ { "varianteId": 9, "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 25.00 } ],
+  "pagos": [ { "metodoPago": "EFECTIVO", "monto": 20.00 } ]
+}
+
+### 9. Dos productos con pago mixto: Nike 39 ($60) + Mochila desde BODEGA ($28) = $88
+POST {{host}}/api/ventas
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "items": [
+    { "varianteId": 1,  "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 60.00 },
+    { "varianteId": 15, "cantidad": 1, "salioDe": "BODEGA", "precioVendidoUnitario": 28.00 }
+  ],
+  "pagos": [
+    { "metodoPago": "EFECTIVO", "monto": 50.00 },
+    { "metodoPago": "TRANSFERENCIA", "monto": 38.00, "referencia": "Comprobante 7781" }
+  ],
+  "nota": "Cliente frecuente"
+}
+
+### 10. ATOMICIDAD: Sandalia 37 (hay stock) + Nike 41 desde PERCHA (hay 0) → 409, y NO se descuenta la sandalia
+POST {{host}}/api/ventas
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "items": [
+    { "varianteId": 14, "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 15.00 },
+    { "varianteId": 3,  "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 65.00 }
+  ],
+  "pagos": [ { "metodoPago": "EFECTIVO", "monto": 80.00 } ]
+}
+
+### 11. Verificar: la Sandalia 37 debe seguir con stockPercha 2
+GET {{host}}/api/productos?buscar=sandalia
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+
+### 12. Idempotencia: envíala DOS veces → mismo ventaId y mismo numeroVenta
+POST {{host}}/api/ventas
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "items": [ { "varianteId": 8, "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 25.00 } ],
+  "pagos": [ { "metodoPago": "EFECTIVO", "monto": 25.00 } ],
+  "clientGuid": "a1b2c3d4-0000-4000-8000-000000000001"
+}
+
+### 13. Caja vista por el dueño: totales actualizados
+GET {{host}}/api/caja/actual
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+
+### 14. Venta vista por el dueño (con ganancia). Usa el ventaId que te devolvió la prueba 9
+GET {{host}}/api/ventas/5
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+
+### 15. Login del bazar
+# @name bazar
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "usuarioLogin": "bazar@demo.com", "password": "Demo123*" }
+
+### 16. El bazar abre su caja
+POST {{host}}/api/caja/abrir
+Authorization: Bearer {{bazar.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "montoInicial": 10 }
+
+### 17. El bazar intenta vender un producto de la ZAPATERÍA → 404
+POST {{host}}/api/ventas
+Authorization: Bearer {{bazar.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "items": [ { "varianteId": 1, "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 65.00 } ],
+  "pagos": [ { "metodoPago": "EFECTIVO", "monto": 65.00 } ]
+}

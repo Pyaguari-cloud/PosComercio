@@ -16,6 +16,8 @@ using PosComercio.Api.Services.Usuarios;
 using PosComercio.Api.Data.Interceptores;
 using PosComercio.Api.Services.Caja;
 using PosComercio.Api.Services.Negocios;
+using PosComercio.Api.Services.Autorizacion;
+using PosComercio.Api.Services.Ventas;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +28,7 @@ builder.Services.AddControllers()
             System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull); builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
 builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services.AddSingleton<SesionNegocioInterceptor>();
@@ -121,6 +124,9 @@ builder.Services.AddScoped<IUsuarioService, UsuarioService>();
 
 builder.Services.AddScoped<IConfiguracionNegocioService, ConfiguracionNegocioService>();
 builder.Services.AddScoped<ICajaService, CajaService>();
+
+builder.Services.AddScoped<IAutorizacionDuenoService, AutorizacionDuenoService>();
+builder.Services.AddScoped<IVentaService, VentaService>();
 
 var app = builder.Build();
 

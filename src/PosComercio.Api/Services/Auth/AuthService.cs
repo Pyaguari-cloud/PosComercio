@@ -40,7 +40,7 @@ public sealed class AuthService(
             return ErroresAuth.CredencialesInvalidas;
         }
 
-        var verificacion = VerificarHash(usuario, usuario.PasswordHash, request.Password);
+        var verificacion = hasher.VerificarSeguro(usuario, usuario.PasswordHash, request.Password);
         if (verificacion == PasswordVerificationResult.Failed)
         {
             logger.LogWarning("Login fallido: contraseña incorrecta para el usuario {UsuarioId}", usuario.UsuarioId);
@@ -85,7 +85,7 @@ public sealed class AuthService(
             return ErroresAuth.PinNoAsignado;
         }
 
-        if (VerificarHash(usuario, usuario.PinHash, request.Pin) == PasswordVerificationResult.Failed)
+        if (hasher.VerificarSeguro(usuario, usuario.PinHash, request.Pin) == PasswordVerificationResult.Failed)
         {
             logger.LogWarning("PIN incorrecto para el usuario {UsuarioId} del negocio {NegocioId}",
                 usuario.UsuarioId, usuario.NegocioId);
@@ -111,18 +111,5 @@ public sealed class AuthService(
                 usuario.Rol,
                 usuario.NegocioId,
                 usuario.Negocio.NombreComercial));
-    }
-
-    private PasswordVerificationResult VerificarHash(Usuario usuario, string hashGuardado, string valor)
-    {
-        try
-        {
-            return hasher.VerifyHashedPassword(usuario, hashGuardado, valor);
-        }
-        catch (FormatException)
-        {
-            logger.LogError("El usuario {UsuarioId} tiene un hash con formato inválido", usuario.UsuarioId);
-            return PasswordVerificationResult.Failed;
-        }
     }
 }

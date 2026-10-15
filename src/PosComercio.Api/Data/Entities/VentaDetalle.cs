@@ -37,7 +37,7 @@ public partial class VentaDetalle
 
     public virtual ProductoVariante ProductoVariante { get; set; } = null!;
 
-    public virtual Usuario? Usuario { get; set; }
+    public virtual Usuario? AutorizadoPor { get; set; }
 
     public virtual Venta Venta { get; set; } = null!;
 }
