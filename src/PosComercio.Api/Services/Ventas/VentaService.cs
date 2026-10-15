@@ -12,6 +12,7 @@ using PosComercio.Api.Services.Caja;
 using PosComercio.Api.Common.Tiempo;
 using PosComercio.Api.Dtos.Comunes;
 using PosComercio.Api.Services.Negocios;
+using PosComercio.Api.Services.Inventario;
 
 namespace PosComercio.Api.Services.Ventas;
 
@@ -29,6 +30,7 @@ public sealed class VentaService(
     IUsuarioActual usuario,
     IAutorizacionDuenoService autorizacion,
     IConfiguracionNegocioService configuracion,
+    IKardexService kardex,
     TimeProvider tiempo,
     ILogger<VentaService> logger) : IVentaService
 {
@@ -115,37 +117,7 @@ public sealed class VentaService(
             autorizadoPor = autorizacionResultado.Valor;
         }
 
-        // 6. Descontar stock. Ordenado por VarianteId para evitar deadlocks.
-        var movimientos = new List<MovimientosInventario>();
-
-        foreach (var item in request.Items.OrderBy(i => i.VarianteId))
-        {
-            var filas = await DescontarStockAsync(item, ct);
-            if (filas == 0)
-            {
-                return ErroresVentas.StockInsuficiente(variantes[item.VarianteId].Nombre, item.SalioDe);
-            }
-
-            // Stock exacto después de ESTE descuento, para el kardex
-            var stock = await LeerStockAsync(item.VarianteId, ct); ;
-
-            movimientos.Add(new MovimientosInventario
-            {
-                NegocioId = negocioId,
-                VarianteId = item.VarianteId,
-                UsuarioId = usuario.UsuarioId,
-                TipoMovimiento = TiposMovimientoInventario.Venta,
-                UbicacionOrigen = item.SalioDe,
-                UbicacionDestino = null,              // sale del local
-                Cantidad = item.Cantidad,
-                StockPerchaResultante = stock.StockPercha,
-                StockBodegaResultante = stock.StockBodega,
-                FechaMovimiento = ahora
-            });
-        }
-
-        // 7. Cabecera. El turno bloqueado hace que las ventas de un negocio vayan
-        //    de una en una, así el número correlativo no se repite.
+        // 6. Cabecera PRIMERO: el motor de kardex necesita el VentaId
         var numeroVenta = (await db.Ventas
             .Where(v => v.NegocioId == negocioId)
             .MaxAsync(v => (int?)v.NumeroVenta, ct) ?? 0) + 1;
@@ -164,7 +136,26 @@ public sealed class VentaService(
         };
 
         db.Ventas.Add(venta);
-        await db.SaveChangesAsync(ct);   // aquí SQL Server asigna el VentaId
+        await db.SaveChangesAsync(ct);
+
+        // 7. Stock y kardex con el motor, en orden de VarianteId (evita deadlocks)
+        foreach (var item in request.Items.OrderBy(i => i.VarianteId))
+        {
+            var movimiento = await kardex.AplicarAsync(new MovimientoStock(
+                item.VarianteId,
+                TiposMovimientoInventario.Venta,
+                Origen: item.SalioDe,
+                Destino: null,
+                item.Cantidad,
+                Nota: $"Venta #{numeroVenta}",
+                VentaId: venta.VentaId), ct);
+
+            if (movimiento is null)
+            {
+                // Al salir sin Commit, la transacción deshace TODO, incluida la cabecera ya insertada
+                return ErroresVentas.StockInsuficiente(variantes[item.VarianteId].Nombre, item.SalioDe);
+            }
+        }
 
         // 8. Detalles, pagos y kardex (ya tenemos el VentaId)
         foreach (var item in request.Items)
@@ -202,13 +193,6 @@ public sealed class VentaService(
             });
         }
 
-        foreach (var movimiento in movimientos)
-        {
-            movimiento.VentaId = venta.VentaId;
-            movimiento.NotaExplicativa = $"Venta #{numeroVenta}";
-            db.Set<MovimientosInventario>().Add(movimiento);
-        }
-
         await db.SaveChangesAsync(ct);
 
         // 9. Todo salió bien: se confirma
@@ -220,31 +204,13 @@ public sealed class VentaService(
         return await ObtenerAsync(venta.VentaId, ct);
     }
 
-    private Task<StockActual> LeerStockAsync(int varianteId, CancellationToken ct) =>
-    db.ProductoVariantes
-      .AsNoTracking()
-      .Where(v => v.NegocioId == tenant.NegocioId && v.VarianteId == varianteId)
-      .Select(v => new StockActual(v.StockPercha, v.StockBodega))
-      .FirstAsync(ct);
 
     /// <summary>
     /// Descuenta stock en UNA sentencia SQL atómica:
     /// UPDATE ... SET StockPercha = StockPercha - @n WHERE ... AND StockPercha >= @n
     /// Si no alcanza, actualiza 0 filas. Nunca deja stock negativo.
     /// </summary>
-    private Task<int> DescontarStockAsync(ItemVentaRequest item, CancellationToken ct)
-    {
-        var variante = db.ProductoVariantes.Where(v =>
-            v.NegocioId == tenant.NegocioId && v.VarianteId == item.VarianteId);
-
-        return item.SalioDe == UbicacionesStock.Percha
-            ? variante
-                .Where(v => v.StockPercha >= item.Cantidad)
-                .ExecuteUpdateAsync(s => s.SetProperty(v => v.StockPercha, v => v.StockPercha - item.Cantidad), ct)
-            : variante
-                .Where(v => v.StockBodega >= item.Cantidad)
-                .ExecuteUpdateAsync(s => s.SetProperty(v => v.StockBodega, v => v.StockBodega - item.Cantidad), ct);
-    }
+    
 
     // =====================================================================
     // CONSULTAR
@@ -416,24 +382,16 @@ public sealed class VentaService(
 
         foreach (var detalle in detalles)
         {
-            await DevolverStockAsync(detalle.VarianteId, detalle.SalioDeUbicacion, detalle.Cantidad, ct);
-            var stock = await LeerStockAsync(detalle.VarianteId, ct);
-
-            db.Set<MovimientosInventario>().Add(new MovimientosInventario
-            {
-                NegocioId = negocioId,
-                VarianteId = detalle.VarianteId,
-                UsuarioId = usuario.UsuarioId,
-                TipoMovimiento = TiposMovimientoInventario.Anulacion,
-                UbicacionOrigen = null,                       // entra al local
-                UbicacionDestino = detalle.SalioDeUbicacion,  // vuelve a donde salió
-                Cantidad = detalle.Cantidad,
-                StockPerchaResultante = stock.StockPercha,
-                StockBodegaResultante = stock.StockBodega,
-                VentaId = ventaId,
-                NotaExplicativa = $"Anulación de la venta #{venta.NumeroVenta}: {motivo}",
-                FechaMovimiento = ahora
-            });
+            // Devolver stock solo SUMA: no puede fallar por falta de stock
+            _ = await kardex.AplicarAsync(new MovimientoStock(
+                detalle.VarianteId,
+                TiposMovimientoInventario.Anulacion,
+                Origen: null,
+                Destino: detalle.SalioDeUbicacion,
+                detalle.Cantidad,
+                Nota: $"Anulación de la venta #{venta.NumeroVenta}: {motivo}",
+                VentaId: ventaId), ct)
+                ?? throw new InvalidOperationException("Devolver stock no debería fallar.");
         }
 
         await db.SaveChangesAsync(ct);
@@ -446,15 +404,6 @@ public sealed class VentaService(
         return await ObtenerAsync(ventaId, ct);
     }
 
-    private Task<int> DevolverStockAsync(int varianteId, string ubicacion, int cantidad, CancellationToken ct)
-    {
-        var variante = db.ProductoVariantes.Where(v =>
-            v.NegocioId == tenant.NegocioId && v.VarianteId == varianteId);
-
-        return ubicacion == UbicacionesStock.Percha
-            ? variante.ExecuteUpdateAsync(s => s.SetProperty(v => v.StockPercha, v => v.StockPercha + cantidad), ct)
-            : variante.ExecuteUpdateAsync(s => s.SetProperty(v => v.StockBodega, v => v.StockBodega + cantidad), ct);
-    }
 
     private Task<long?> BuscarIdPorClientGuidAsync(Guid clientGuid, CancellationToken ct) =>
         db.Ventas
@@ -502,5 +451,3 @@ internal sealed record VarianteVendida(
     decimal PrecioCosto,
     decimal PrecioLista,
     decimal PrecioMinimo);
-
-internal sealed record StockActual(int StockPercha, int StockBodega);

@@ -18,7 +18,8 @@ public sealed record MovimientoStock(
     string? Destino,
     int Cantidad,
     string? Nota = null,
-    Guid? ClientGuid = null);
+    Guid? ClientGuid = null,
+    long? VentaId = null);
 
 public interface IKardexService
 {
@@ -90,7 +91,8 @@ public sealed class KardexService(
             StockBodegaResultante = stock.StockBodega,
             NotaExplicativa = m.Nota,
             FechaMovimiento = tiempo.GetUtcNow().UtcDateTime,
-            ClientGuid = m.ClientGuid
+            ClientGuid = m.ClientGuid,
+            VentaId = m.VentaId
         };
 
         db.Set<MovimientosInventario>().Add(registro);
