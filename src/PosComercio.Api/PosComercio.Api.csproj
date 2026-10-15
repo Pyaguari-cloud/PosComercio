@@ -28,4 +28,7 @@
     <Folder Include="pruebas\" />
   </ItemGroup>
 
+  <ItemGroup>
+	<InternalsVisibleTo Include="PosComercio.Api.Tests" />
+  </ItemGroup>
 </Project>

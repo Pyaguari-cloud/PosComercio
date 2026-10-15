@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/PosComercio.Api/PosComercio.Api.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PosComercio.Api.Tests/PosComercio.Api.Tests.csproj" />
+  </Folder>
 </Solution>
