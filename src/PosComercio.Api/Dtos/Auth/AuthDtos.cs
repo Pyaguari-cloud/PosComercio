@@ -28,3 +28,7 @@ public sealed record CambiarUsuarioRequest(
     [Range(1, int.MaxValue)] int UsuarioId,
     [Required, RegularExpression(@"^\d{4}$", ErrorMessage = "El PIN debe tener exactamente 4 dígitos.")]
     string Pin);
+
+public sealed record CambiarPasswordRequest(
+    [Required, StringLength(100)] string PasswordActual,
+    [Required, StringLength(100)] string PasswordNueva);

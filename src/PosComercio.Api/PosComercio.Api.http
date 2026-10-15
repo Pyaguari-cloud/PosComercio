@@ -7,80 +7,158 @@ Content-Type: application/json
 
 { "usuarioLogin": "dueno@demo.com", "password": "Demo123*" }
 
-### 2. Subir foto al producto 1 (Zapatilla Urbana) → 200 con imagenUrl
-POST {{host}}/api/productos/1/foto
+### 2. Usuarios del negocio (vista de gestión)
+GET {{host}}/api/usuarios/gestion
 Authorization: Bearer {{dueno.response.body.$.accessToken}}
-Content-Type: multipart/form-data; boundary=LIMITE
 
---LIMITE
-Content-Disposition: form-data; name="archivo"; filename="zapato.jpg"
-Content-Type: image/jpeg
-
-< ./pruebas/zapato.jpg
---LIMITE--
-
-### 3. Archivo de texto disfrazado de .jpg → 400 fotos.no_es_imagen
-POST {{host}}/api/productos/1/foto
+### 3. Crear un vendedor nuevo con PIN → 200
+# @name nuevoVendedor
+POST {{host}}/api/usuarios
 Authorization: Bearer {{dueno.response.body.$.accessToken}}
-Content-Type: multipart/form-data; boundary=LIMITE
+Content-Type: application/json
 
---LIMITE
-Content-Disposition: form-data; name="archivo"; filename="falso.jpg"
-Content-Type: image/jpeg
+{ "nombre": "Vendedor Dos", "usuarioLogin": "Vendedor2@Demo.com", "password": "venta2026", "rol": "Vendedor", "pin": "4826" }
 
-< ./pruebas/falso.jpg
---LIMITE--
-
-### 4. Foto para la variante 3 (Nike 41): por ejemplo, la caja en la bodega → 200
-POST {{host}}/api/productos/variantes/3/foto
+### 4. Contraseña débil → 400
+POST {{host}}/api/usuarios
 Authorization: Bearer {{dueno.response.body.$.accessToken}}
-Content-Type: multipart/form-data; boundary=LIMITE
+Content-Type: application/json
 
---LIMITE
-Content-Disposition: form-data; name="archivo"; filename="zapato2.jpg"
-Content-Type: image/jpeg
+{ "nombre": "Otro", "usuarioLogin": "otro@demo.com", "password": "1234", "rol": "Vendedor" }
 
-< ./pruebas/zapato2.jpg
---LIMITE--
-
-### 5. REEMPLAZAR la foto del producto 1 → URL nueva; la foto anterior se borra del disco
-POST {{host}}/api/productos/1/foto
+### 5. Login ya registrado → 409
+POST {{host}}/api/usuarios
 Authorization: Bearer {{dueno.response.body.$.accessToken}}
-Content-Type: multipart/form-data; boundary=LIMITE
+Content-Type: application/json
 
---LIMITE
-Content-Disposition: form-data; name="archivo"; filename="zapato2.jpg"
-Content-Type: image/jpeg
+{ "nombre": "Repetido", "usuarioLogin": "vendedor2@demo.com", "password": "venta2026", "rol": "Vendedor" }
 
-< ./pruebas/zapato2.jpg
---LIMITE--
-
-### 6. Sin archivo → 400
-POST {{host}}/api/productos/1/foto
+### 6. Intentar crear un AdminSaaS → 400
+POST {{host}}/api/usuarios
 Authorization: Bearer {{dueno.response.body.$.accessToken}}
-Content-Type: multipart/form-data; boundary=LIMITE
+Content-Type: application/json
 
---LIMITE--
+{ "nombre": "Hacker", "usuarioLogin": "hacker@demo.com", "password": "venta2026", "rol": "AdminSaaS" }
 
-### 7. Login del bazar
-# @name bazar
+### 7. El vendedor nuevo inicia sesión
+# @name vendedor2
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
-{ "usuarioLogin": "bazar@demo.com", "password": "Demo123*" }
+{ "usuarioLogin": "vendedor2@demo.com", "password": "venta2026" }
 
-### 8. El bazar intenta poner una foto a un producto de la zapatería → 404
-POST {{host}}/api/productos/1/foto
-Authorization: Bearer {{bazar.response.body.$.accessToken}}
-Content-Type: multipart/form-data; boundary=LIMITE
+### 8. Su sesión funciona
+GET {{host}}/api/auth/yo
+Authorization: Bearer {{vendedor2.response.body.$.accessToken}}
 
---LIMITE
-Content-Disposition: form-data; name="archivo"; filename="zapato.jpg"
-Content-Type: image/jpeg
-
-< ./pruebas/zapato.jpg
---LIMITE--
-
-### 9. Quitar la foto del producto 1 → 200 sin imagenUrl, y el archivo se borra
-DELETE {{host}}/api/productos/1/foto
+### 9. El dueño lo DESACTIVA
+PUT {{host}}/api/usuarios/{{nuevoVendedor.response.body.$.usuarioId}}
 Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "nombre": "Vendedor Dos", "rol": "Vendedor", "activo": false }
+
+### 10. Su token (que aún no expira) YA NO FUNCIONA → 401
+GET {{host}}/api/auth/yo
+Authorization: Bearer {{vendedor2.response.body.$.accessToken}}
+
+### 11. Tampoco puede volver a entrar → 401
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "usuarioLogin": "vendedor2@demo.com", "password": "venta2026" }
+
+### 12. El dueño intenta desactivarse a sí mismo → 409
+PUT {{host}}/api/usuarios/1
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "nombre": "Dueño Demo", "rol": "Dueno", "activo": false }
+
+### 13. Reactivarlo
+PUT {{host}}/api/usuarios/{{nuevoVendedor.response.body.$.usuarioId}}
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "nombre": "Vendedor Dos", "rol": "Vendedor", "activo": true }
+
+### 14. Se le olvidó la contraseña: el dueño se la restablece
+POST {{host}}/api/usuarios/{{nuevoVendedor.response.body.$.usuarioId}}/restablecer-password
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "passwordNueva": "nueva2026" }
+
+### 15. Entra con la contraseña nueva
+# @name vendedor2b
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "usuarioLogin": "vendedor2@demo.com", "password": "nueva2026" }
+
+### 16. Él mismo la cambia por una que solo él conoce → 204
+POST {{host}}/api/auth/cambiar-password
+Authorization: Bearer {{vendedor2b.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "passwordActual": "nueva2026", "passwordNueva": "SoloYoLaSe2026" }
+
+### 17. Contraseña actual incorrecta → 400
+POST {{host}}/api/auth/cambiar-password
+Authorization: Bearer {{vendedor2b.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "passwordActual": "otraCosa1", "passwordNueva": "SoloYoLaSe2026" }
+
+### 18. Login del ADMINISTRADOR (usa tus datos de User Secrets)
+# @name admin
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "usuarioLogin": "admin@poscomercio.local", "password": "Py240242!" }
+
+### 19. Dar de alta un negocio nuevo
+# @name esquina
+POST {{host}}/api/admin/negocios
+Authorization: Bearer {{admin.response.body.$.accessToken}}
+Content-Type: application/json
+
+{
+  "nombreComercial": "Calzado La Esquina",
+  "tipoNegocio": "Zapateria",
+  "telefonoContacto": "0991112233",
+  "diasPrueba": 15,
+  "dueno": { "nombre": "Rosa Pérez", "usuarioLogin": "esquina@demo.com", "password": "esquina2026" }
+}
+
+### 20. La dueña del negocio nuevo inicia sesión
+# @name rosa
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "usuarioLogin": "esquina@demo.com", "password": "esquina2026" }
+
+### 21. Su negocio arranca con la categoría "General" lista
+GET {{host}}/api/categorias
+Authorization: Bearer {{rosa.response.body.$.accessToken}}
+
+### 22. Un dueño normal intenta entrar al panel de admin → 403
+GET {{host}}/api/admin/negocios
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+
+### 23. El admin SUSPENDE el negocio (por ejemplo, por falta de pago)
+PUT {{host}}/api/admin/negocios/{{esquina.response.body.$.negocioId}}/plan
+Authorization: Bearer {{admin.response.body.$.accessToken}}
+Content-Type: application/json
+
+{ "plan": "SUSPENDIDO" }
+
+### 24. Rosa intenta entrar de nuevo → 403 auth.negocio_suspendido
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "usuarioLogin": "esquina@demo.com", "password": "esquina2026" }
+
+### 25. Lista de negocios (vista del admin)
+GET {{host}}/api/admin/negocios
+Authorization: Bearer {{admin.response.body.$.accessToken}}

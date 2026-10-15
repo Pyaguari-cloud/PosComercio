@@ -30,4 +30,9 @@ public static class ErroresAuth
         "auth.pin_incorrecto",
         "PIN incorrecto.",
         StatusCodes.Status401Unauthorized);
+
+    public static readonly Error PasswordActualIncorrecta = new(
+    "auth.password_actual_incorrecta",
+    "La contraseña actual no es correcta.",
+    StatusCodes.Status400BadRequest);
 }

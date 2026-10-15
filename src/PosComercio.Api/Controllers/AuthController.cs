@@ -40,4 +40,13 @@ public sealed class AuthController(
     [HttpGet("yo")]
     public ActionResult<SesionActualDto> Yo() =>
         Ok(new SesionActualDto(usuarioActual.UsuarioId, usuarioActual.Nombre, usuarioActual.Rol, tenant.NegocioId));
+
+    /// <summary>Cambia la contraseña del usuario actual.</summary>
+    [HttpPost("cambiar-password")]
+    [EnableRateLimiting(PoliticasRateLimit.Login)]
+    public async Task<IActionResult> CambiarPassword(CambiarPasswordRequest request, CancellationToken ct)
+    {
+        var error = await authService.CambiarPasswordAsync(request, ct);
+        return error is null ? NoContent() : Problema(error);
+    }
 }

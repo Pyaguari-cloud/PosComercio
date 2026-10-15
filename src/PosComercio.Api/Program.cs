@@ -23,6 +23,9 @@ using PosComercio.Api.Services.Inventario;
 using Microsoft.Extensions.FileProviders;
 using PosComercio.Api.Common.Almacenamiento;
 using PosComercio.Api.Services.Fotos;
+using PosComercio.Api.Common.OpenApi;
+using PosComercio.Api.Services.Admin;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,7 +33,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
         options.JsonSerializerOptions.DefaultIgnoreCondition =
-            System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull); builder.Services.AddOpenApi();
+            System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull); builder.Services.AddOpenApi(options => options.AddDocumentTransformer<TransformadorSeguridadBearer>());
+const string PoliticaCors = "Frontend";
+var origenesPermitidos = builder.Configuration.GetSection("Cors:OrigenesPermitidos").Get<string[]>() ?? [];
+
+builder.Services.AddCors(options => options.AddPolicy(PoliticaCors, politica => politica
+    .WithOrigins(origenesPermitidos)
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .WithExposedHeaders("Location")));   // para que el frontend pueda leer la URL de los 201 Created
+
 builder.Services.AddProblemDetails();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
@@ -49,7 +61,8 @@ builder.Services.AddAuthorizationBuilder()
     .SetFallbackPolicy(new AuthorizationPolicyBuilder()
         .RequireAuthenticatedUser()
         .Build())
-    .AddPolicy(Politicas.SoloDueno, policy => policy.RequireRole(Roles.Dueno));
+    .AddPolicy(Politicas.SoloDueno, policy => policy.RequireRole(Roles.Dueno))
+    .AddPolicy(Politicas.SoloAdminSaaS, policy => policy.RequireRole(Roles.AdminSaaS));
 
 
 // ---------- Autenticación (JWT) ----------
@@ -80,6 +93,23 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             ClockSkew = TimeSpan.FromSeconds(30),
             NameClaimType = ClaimsPos.Nombre,
             RoleClaimType = ClaimsPos.Rol
+        };
+        options.Events = new JwtBearerEvents
+        {
+            // Se ejecuta DESPUÉS de verificar la firma y la expiración del token
+            OnTokenValidated = async contexto =>
+            {
+                var claimUsuario = contexto.Principal?.FindFirst(ClaimsPos.UsuarioId)?.Value;
+                var validador = contexto.HttpContext.RequestServices.GetRequiredService<IValidadorSesion>();
+
+                var esValida = int.TryParse(claimUsuario, out var usuarioId)
+                            && await validador.EsValidaAsync(usuarioId, contexto.HttpContext.RequestAborted);
+
+                if (!esValida)
+                {
+                    contexto.Fail("El usuario o el negocio ya no están activos.");
+                }
+            }
         };
     });
 
@@ -143,7 +173,13 @@ builder.Services.AddScoped<IProductoEdicionService, ProductoEdicionService>();
 builder.Services.AddScoped<IKardexService, KardexService>();
 builder.Services.AddScoped<IInventarioService, InventarioService>();
 
+builder.Services.AddScoped<IValidadorSesion, ValidadorSesion>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+
 var app = builder.Build();
+
+// En todos los entornos: crea el AdminSaaS inicial si está configurado y no existe
+await InicializadorAdmin.CrearSiNoExisteAsync(app.Services);
 
 // ---------- Datos de desarrollo ----------
 if (app.Environment.IsDevelopment())
@@ -158,6 +194,7 @@ app.UseStatusCodePages();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi().AllowAnonymous();
+    app.MapScalarApiReference().AllowAnonymous();
 }
 
 app.UseHttpsRedirection();
@@ -174,7 +211,7 @@ app.UseStaticFiles(new StaticFileOptions
     OnPrepareResponse = contexto =>
         contexto.Context.Response.Headers.CacheControl = "public,max-age=31536000,immutable"
 });
-
+app.UseCors(PoliticaCors);
 app.UseAuthentication();   // 1. ¿Quién eres? (lee y valida el token)
 app.UseAuthorization();    // 2. ¿Puedes entrar aquí?
 app.UseRateLimiter();

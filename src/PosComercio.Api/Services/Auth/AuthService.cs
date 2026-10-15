@@ -6,6 +6,7 @@ using PosComercio.Api.Common.Tenancy;
 using PosComercio.Api.Data;
 using PosComercio.Api.Data.Entities;
 using PosComercio.Api.Dtos.Auth;
+using PosComercio.Api.Services.Usuarios;
 
 namespace PosComercio.Api.Services.Auth;
 
@@ -13,6 +14,7 @@ public interface IAuthService
 {
     Task<Resultado<LoginResponse>> LoginAsync(LoginRequest request, CancellationToken ct);
     Task<Resultado<LoginResponse>> CambiarUsuarioPorPinAsync(CambiarUsuarioRequest request, CancellationToken ct);
+    Task<Error?> CambiarPasswordAsync(CambiarPasswordRequest request, CancellationToken ct);
 }
 
 public sealed class AuthService(
@@ -20,14 +22,15 @@ public sealed class AuthService(
     ITokenService tokenService,
     IPasswordHasher<Usuario> hasher,
     ITenantContext tenant,
-    ILogger<AuthService> logger) : IAuthService
+    ILogger<AuthService> logger,
+    IUsuarioActual usuarioActual) : IAuthService
 {
     private static readonly string HashFicticio =
         new PasswordHasher<Usuario>().HashPassword(new Usuario(), "contrasena-ficticia-para-igualar-tiempos");
 
     public async Task<Resultado<LoginResponse>> LoginAsync(LoginRequest request, CancellationToken ct)
     {
-        var login = request.UsuarioLogin.Trim().ToLowerInvariant();
+        var login = Logins.Normalizar(request.UsuarioLogin);
 
         var usuario = await db.Usuarios
             .Include(u => u.Negocio)
@@ -111,5 +114,28 @@ public sealed class AuthService(
                 usuario.Rol,
                 usuario.NegocioId,
                 usuario.Negocio.NombreComercial));
+    }
+
+    public async Task<Error?> CambiarPasswordAsync(CambiarPasswordRequest request, CancellationToken ct)
+    {
+        if (ReglasPassword.Validar(request.PasswordNueva) is { } errorPassword)
+        {
+            return errorPassword;
+        }
+
+        var usuario = await db.Usuarios.FirstAsync(u => u.UsuarioId == usuarioActual.UsuarioId, ct);
+
+        // Pedir la contraseña actual evita que alguien con el celular desbloqueado la cambie
+        if (hasher.VerificarSeguro(usuario, usuario.PasswordHash, request.PasswordActual)
+            == PasswordVerificationResult.Failed)
+        {
+            return ErroresAuth.PasswordActualIncorrecta;
+        }
+
+        usuario.PasswordHash = hasher.HashPassword(usuario, request.PasswordNueva);
+        await db.SaveChangesAsync(ct);
+
+        logger.LogInformation("El usuario {UsuarioId} cambió su contraseña", usuario.UsuarioId);
+        return null;
     }
 }

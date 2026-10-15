@@ -28,4 +28,11 @@ public static class PoliticasRateLimit
 public static class Politicas
 {
     public const string SoloDueno = "SoloDueno";
+    public const string SoloAdminSaaS = "SoloAdminSaaS";
+}
+
+public static class Logins
+{
+    /// <summary>"  Juan@Correo.com " → "juan@correo.com"</summary>
+    public static string Normalizar(string login) => login.Trim().ToLowerInvariant();
 }
