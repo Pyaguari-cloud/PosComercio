@@ -1,5 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
-
+using PosComercio.Api.Dtos.Comunes;
 namespace PosComercio.Api.Dtos.Ventas;
 
 // ---------- Petición ----------
@@ -55,4 +55,51 @@ public sealed record VentaDto(
     IReadOnlyList<VentaDetalleDto> Detalles,
     IReadOnlyList<VentaPagoDto> Pagos,
     decimal TotalRebajado,
-    decimal? Ganancia);   // solo el dueño
+    decimal? Ganancia,          // solo el dueño
+    string? MotivoAnulacion,    // NUEVO
+    string? AnuladaPor);        // NUEVO);   
+
+// ---------- Cuaderno del día ----------
+
+public sealed record CuadernoQuery
+{
+    /// <summary>Fecha local del negocio. Si no se envía, es hoy.</summary>
+    public DateOnly? Fecha { get; init; }
+
+    /// <summary>Filtrar por vendedor (opcional).</summary>
+    public int? UsuarioId { get; init; }
+
+    [Range(1, int.MaxValue)] public int Pagina { get; init; } = 1;
+    [Range(1, 100)] public int TamanoPagina { get; init; } = 50;
+}
+
+public sealed record VentaResumenDto(
+    long VentaId,
+    int NumeroVenta,
+    DateTime FechaVentaUtc,
+    string Vendedor,
+    string Estado,
+    decimal TotalVenta,
+    int CantidadArticulos,
+    IReadOnlyList<string> Productos,
+    IReadOnlyList<string> MetodosPago);
+
+public sealed record CuadernoDto(
+    DateOnly Fecha,
+    int CantidadVentas,
+    int CantidadAnuladas,
+    decimal TotalVendido,
+    decimal TotalEfectivo,
+    decimal TotalTransferencia,
+    decimal TotalTarjeta,
+    decimal TotalRebajado,
+    decimal? Ganancia,                       // solo el dueño
+    PaginaDto<VentaResumenDto> Ventas);
+
+// ---------- Anulación ----------
+
+public sealed record AnularVentaRequest(
+    [Required, StringLength(200, MinimumLength = 5, ErrorMessage = "Explica el motivo (5 a 200 caracteres).")]
+    string Motivo,
+    [RegularExpression(@"^\d{4}$", ErrorMessage = "El PIN debe tener 4 dígitos.")]
+    string? PinAutorizacion);

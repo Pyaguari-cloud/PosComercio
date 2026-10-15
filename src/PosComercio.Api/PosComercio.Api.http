@@ -14,248 +14,65 @@ Content-Type: application/json
 
 { "usuarioLogin": "vendedor@demo.com", "password": "Demo123*" }
 
-### 3. Caja vista por el VENDEDOR: sin efectivoEsperado ni ganancia (cierre ciego)
-GET {{host}}/api/caja/actual
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-
-### 4. Caja vista por el DUEÑO: efectivoEsperado 48.50 y ganancia 20.00
-GET {{host}}/api/caja/actual
+### 3. Cuaderno de HOY visto por el dueño (con ganancia)
+GET {{host}}/api/ventas
 Authorization: Bearer {{dueno.response.body.$.accessToken}}
 
-### 5. Abrir otra caja: 409 (ya hay una abierta)
-POST {{host}}/api/caja/abrir
+### 4. Cuaderno de HOY visto por el vendedor (sin ganancia)
+GET {{host}}/api/ventas
+Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+
+### 5. Cuaderno de AYER: vacío
+GET {{host}}/api/ventas?fecha=2026-10-13
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+
+### 6. El vendedor anula SIN PIN → 403 autorizacion.requerida
+POST {{host}}/api/ventas/3/anular
 Authorization: Bearer {{vendedor.response.body.$.accessToken}}
 Content-Type: application/json
 
-{ "montoInicial": 20 }
+{ "motivo": "El cliente se arrepintió" }
 
-### 6. Gasto de $2 (con ClientGuid fijo)
-POST {{host}}/api/caja/movimientos
+### 7. Motivo demasiado corto → 400
+POST {{host}}/api/ventas/3/anular
 Authorization: Bearer {{vendedor.response.body.$.accessToken}}
 Content-Type: application/json
 
-{
-  "tipo": "GASTO",
-  "monto": 2.00,
-  "concepto": "Almuerzo del cargador",
-  "clientGuid": "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
-}
+{ "motivo": "no", "pinAutorizacion": "1357" }
 
-### 7. El MISMO gasto otra vez: debe devolver el mismo cajaMovimientoId (idempotencia)
-POST {{host}}/api/caja/movimientos
+### 8. El vendedor anula CON el PIN del dueño → 200, estado ANULADA
+POST {{host}}/api/ventas/3/anular
 Authorization: Bearer {{vendedor.response.body.$.accessToken}}
 Content-Type: application/json
 
-{
-  "tipo": "GASTO",
-  "monto": 2.00,
-  "concepto": "Almuerzo del cargador",
-  "clientGuid": "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
-}
+{ "motivo": "El cliente se arrepintió", "pinAutorizacion": "1357" }
 
-### 8. El vendedor intenta un retiro: 403
-POST {{host}}/api/caja/movimientos
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "tipo": "RETIRO", "monto": 10, "concepto": "Retiro" }
-
-### 9. Gasto mayor al efectivo en caja: 422
-POST {{host}}/api/caja/movimientos
+### 9. Anular otra vez → 409 ventas.ya_anulada
+POST {{host}}/api/ventas/3/anular
 Authorization: Bearer {{dueno.response.body.$.accessToken}}
 Content-Type: application/json
 
-{ "tipo": "GASTO", "monto": 1000, "concepto": "Algo caro" }
+{ "motivo": "Intento duplicado" }
 
-### 10. Tipo inventado: 400 de validación
-POST {{host}}/api/caja/movimientos
+### 10. Venta de la caja YA CERRADA → 409 ventas.fuera_de_turno
+POST {{host}}/api/ventas/1/anular
 Authorization: Bearer {{dueno.response.body.$.accessToken}}
 Content-Type: application/json
 
-{ "tipo": "PROPINA", "monto": 5, "concepto": "Prueba" }
+{ "motivo": "Prueba de venta antigua" }
 
-### 11. El vendedor cierra contando $46.00 (faltan $0.50)
-POST {{host}}/api/caja/cerrar
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "efectivoContado": 46.00, "nota": "Cierre de prueba" }
-
-### 12. Cerrar otra vez: 409 (no hay caja abierta)
-POST {{host}}/api/caja/cerrar
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "efectivoContado": 46.00 }
-
-### 13. Estado: sin caja abierta, con monto sugerido 20
-GET {{host}}/api/caja/actual
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-
-### 14. Historial como DUEÑO: con ganancia
-GET {{host}}/api/caja/cierres
-Authorization: Bearer {{dueno.response.body.$.accessToken}}
-
-### 15. Historial como VENDEDOR: 403
-GET {{host}}/api/caja/cierres
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-
-### 16. Abrir una caja nueva
-POST {{host}}/api/caja/abrir
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "montoInicial": 20 }
-
-
-@host = https://localhost:7259
-
-### 1. Login dueño
-# @name dueno
-POST {{host}}/api/auth/login
-Content-Type: application/json
-
-{ "usuarioLogin": "dueno@demo.com", "password": "Demo123*" }
-
-### 2. Login vendedor
-# @name vendedor
-POST {{host}}/api/auth/login
-Content-Type: application/json
-
-{ "usuarioLogin": "vendedor@demo.com", "password": "Demo123*" }
-
-### 3. Venta simple: Escolar 36 a $22 (lista 25, mínimo 20), efectivo → 201
-POST {{host}}/api/ventas
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{
-  "items": [ { "varianteId": 9, "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 22.00 } ],
-  "pagos": [ { "metodoPago": "EFECTIVO", "monto": 22.00 } ]
-}
-
-### 4. Sandalia 36 a $10 (mínimo $12) SIN PIN → 403 autorizacion.requerida
-POST {{host}}/api/ventas
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{
-  "items": [ { "varianteId": 13, "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 10.00 } ],
-  "pagos": [ { "metodoPago": "EFECTIVO", "monto": 10.00 } ]
-}
-
-### 5. El dueño se asigna su PIN (1357)
-PUT {{host}}/api/usuarios/1/pin
-Authorization: Bearer {{dueno.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "pin": "1357" }
-
-### 6. Misma venta CON el PIN del dueño → 201, con autorizadoPor
-POST {{host}}/api/ventas
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{
-  "items": [ { "varianteId": 13, "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 10.00 } ],
-  "pagos": [ { "metodoPago": "EFECTIVO", "monto": 10.00 } ],
-  "pinAutorizacion": "1357"
-}
-
-### 7. PIN del dueño incorrecto → 403 autorizacion.pin_incorrecto
-POST {{host}}/api/ventas
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{
-  "items": [ { "varianteId": 13, "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 10.00 } ],
-  "pagos": [ { "metodoPago": "EFECTIVO", "monto": 10.00 } ],
-  "pinAutorizacion": "9999"
-}
-
-### 8. Los pagos no cuadran → 422
-POST {{host}}/api/ventas
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{
-  "items": [ { "varianteId": 9, "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 25.00 } ],
-  "pagos": [ { "metodoPago": "EFECTIVO", "monto": 20.00 } ]
-}
-
-### 9. Dos productos con pago mixto: Nike 39 ($60) + Mochila desde BODEGA ($28) = $88
-POST {{host}}/api/ventas
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{
-  "items": [
-    { "varianteId": 1,  "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 60.00 },
-    { "varianteId": 15, "cantidad": 1, "salioDe": "BODEGA", "precioVendidoUnitario": 28.00 }
-  ],
-  "pagos": [
-    { "metodoPago": "EFECTIVO", "monto": 50.00 },
-    { "metodoPago": "TRANSFERENCIA", "monto": 38.00, "referencia": "Comprobante 7781" }
-  ],
-  "nota": "Cliente frecuente"
-}
-
-### 10. ATOMICIDAD: Sandalia 37 (hay stock) + Nike 41 desde PERCHA (hay 0) → 409, y NO se descuenta la sandalia
-POST {{host}}/api/ventas
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{
-  "items": [
-    { "varianteId": 14, "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 15.00 },
-    { "varianteId": 3,  "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 65.00 }
-  ],
-  "pagos": [ { "metodoPago": "EFECTIVO", "monto": 80.00 } ]
-}
-
-### 11. Verificar: la Sandalia 37 debe seguir con stockPercha 2
+### 11. La Sandalia 36 recuperó su stock en percha (debe volver a 2)
 GET {{host}}/api/productos?buscar=sandalia
 Authorization: Bearer {{vendedor.response.body.$.accessToken}}
 
-### 12. Idempotencia: envíala DOS veces → mismo ventaId y mismo numeroVenta
-POST {{host}}/api/ventas
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{
-  "items": [ { "varianteId": 8, "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 25.00 } ],
-  "pagos": [ { "metodoPago": "EFECTIVO", "monto": 25.00 } ],
-  "clientGuid": "a1b2c3d4-0000-4000-8000-000000000001"
-}
-
-### 13. Caja vista por el dueño: totales actualizados
+### 12. Caja: la venta anulada ya no suma
 GET {{host}}/api/caja/actual
 Authorization: Bearer {{dueno.response.body.$.accessToken}}
 
-### 14. Venta vista por el dueño (con ganancia). Usa el ventaId que te devolvió la prueba 9
-GET {{host}}/api/ventas/5
+### 13. Cuaderno de hoy después de la anulación
+GET {{host}}/api/ventas
 Authorization: Bearer {{dueno.response.body.$.accessToken}}
 
-### 15. Login del bazar
-# @name bazar
-POST {{host}}/api/auth/login
-Content-Type: application/json
-
-{ "usuarioLogin": "bazar@demo.com", "password": "Demo123*" }
-
-### 16. El bazar abre su caja
-POST {{host}}/api/caja/abrir
-Authorization: Bearer {{bazar.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "montoInicial": 10 }
-
-### 17. El bazar intenta vender un producto de la ZAPATERÍA → 404
-POST {{host}}/api/ventas
-Authorization: Bearer {{bazar.response.body.$.accessToken}}
-Content-Type: application/json
-
-{
-  "items": [ { "varianteId": 1, "cantidad": 1, "salioDe": "PERCHA", "precioVendidoUnitario": 65.00 } ],
-  "pagos": [ { "metodoPago": "EFECTIVO", "monto": 65.00 } ]
-}
+### 14. Cuaderno filtrado por el vendedor
+GET {{host}}/api/ventas?usuarioId=2
+Authorization: Bearer {{dueno.response.body.$.accessToken}}

@@ -26,4 +26,14 @@ public sealed class VentasController(IVentaService ventaService) : PosController
     [HttpGet("{ventaId:long}")]
     public async Task<ActionResult<VentaDto>> Obtener(long ventaId, CancellationToken ct) =>
         Responder(await ventaService.ObtenerAsync(ventaId, ct));
+
+    /// <summary>Cuaderno del día: ventas de una fecha local con sus totales.</summary>
+    [HttpGet]
+    public async Task<ActionResult<CuadernoDto>> Cuaderno([FromQuery] CuadernoQuery query, CancellationToken ct) =>
+        Ok(await ventaService.ObtenerCuadernoAsync(query, ct));
+
+    /// <summary>Anula una venta de la caja abierta. Requiere autorización del dueño.</summary>
+    [HttpPost("{ventaId:long}/anular")]
+    public async Task<ActionResult<VentaDto>> Anular(long ventaId, AnularVentaRequest request, CancellationToken ct) =>
+        Responder(await ventaService.AnularAsync(ventaId, request, ct));
 }

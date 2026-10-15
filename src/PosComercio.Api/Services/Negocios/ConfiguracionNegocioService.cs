@@ -12,7 +12,8 @@ namespace PosComercio.Api.Services.Negocios;
 public sealed record ConfiguracionNegocio(
     bool CierreCiego = false,
     decimal MontoInicialSugerido = 0,
-    bool PermiteRegateo = true);
+    bool PermiteRegateo = true,
+    string ZonaHoraria = "America/Guayaquil");
 
 public interface IConfiguracionNegocioService
 {
@@ -37,13 +38,18 @@ public sealed class ConfiguracionNegocioService(
             return _cache;
         }
 
-        var json = await db.Negocios
+        var negocio = await db.Negocios
             .AsNoTracking()
             .Where(n => n.NegocioId == tenant.NegocioId)
-            .Select(n => n.ConfiguracionJson)
+            .Select(n => new { n.ConfiguracionJson, n.ZonaHoraria })
             .FirstOrDefaultAsync(ct);
 
-        _cache = Deserializar(json);
+        // La zona horaria vive en su propia columna, no en el JSON
+        _cache = Deserializar(negocio?.ConfiguracionJson) with
+        {
+            ZonaHoraria = negocio?.ZonaHoraria ?? "America/Guayaquil"
+        };
+
         return _cache;
     }
 

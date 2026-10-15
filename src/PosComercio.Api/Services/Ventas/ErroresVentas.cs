@@ -36,4 +36,14 @@ public static class ErroresVentas
         "ventas.stock_insuficiente",
         $"No hay suficiente stock de '{producto}' en {ubicacion.ToLowerInvariant()}.",
         StatusCodes.Status409Conflict);
+
+    public static readonly Error YaAnulada = new(
+    "ventas.ya_anulada",
+    "Esta venta ya fue anulada.",
+    StatusCodes.Status409Conflict);
+
+    public static readonly Error FueraDeTurno = new(
+        "ventas.fuera_de_turno",
+        "Solo se pueden anular ventas de la caja abierta. Esta venta pertenece a un cierre anterior.",
+        StatusCodes.Status409Conflict);
 }
