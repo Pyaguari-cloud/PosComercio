@@ -155,7 +155,7 @@ public partial class PosComercioDbContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Mov_Usuarios");
 
-            entity.HasOne(d => d.ProductoVariante).WithMany(p => p.MovimientosInventarios)
+            entity.HasOne(d => d.Variante).WithMany(p => p.MovimientosInventarios)
                 .HasPrincipalKey(p => new { p.NegocioId, p.VarianteId })
                 .HasForeignKey(d => new { d.NegocioId, d.VarianteId })
                 .OnDelete(DeleteBehavior.ClientSetNull)

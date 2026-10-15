@@ -19,6 +19,7 @@ using PosComercio.Api.Services.Negocios;
 using PosComercio.Api.Services.Autorizacion;
 using PosComercio.Api.Services.Ventas;
 using PosComercio.Api.Services.Catalogo;
+using PosComercio.Api.Services.Inventario;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -131,6 +132,9 @@ builder.Services.AddScoped<IVentaService, VentaService>();
 
 builder.Services.AddScoped<ICatalogoService, CatalogoService>();
 builder.Services.AddScoped<IProductoEdicionService, ProductoEdicionService>();
+
+builder.Services.AddScoped<IKardexService, KardexService>();
+builder.Services.AddScoped<IInventarioService, InventarioService>();
 
 var app = builder.Build();
 

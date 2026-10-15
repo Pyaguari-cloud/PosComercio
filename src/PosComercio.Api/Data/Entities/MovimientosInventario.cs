@@ -33,7 +33,7 @@ public partial class MovimientosInventario
 
     public Guid? ClientGuid { get; set; }
 
-    public virtual ProductoVariante ProductoVariante { get; set; } = null!;
+    public virtual ProductoVariante Variante { get; set; } = null!;
 
     public virtual Usuario Usuario { get; set; } = null!;
 

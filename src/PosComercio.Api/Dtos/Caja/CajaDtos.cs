@@ -19,11 +19,7 @@ public sealed record CerrarCajaRequest(
     [Range(0, 1_000_000)] decimal EfectivoContado,
     [StringLength(250)] string? Nota);
 
-public sealed record PaginacionQuery
-{
-    [Range(1, int.MaxValue)] public int Pagina { get; init; } = 1;
-    [Range(1, 100)] public int TamanoPagina { get; init; } = 20;
-}
+
 
 // ---------- Respuestas ----------
 

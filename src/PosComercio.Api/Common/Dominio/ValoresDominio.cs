@@ -46,3 +46,9 @@ public static class TiposMovimientoInventario
     public const string AjusteConteo = "AJUSTE_CONTEO";
     public const string Anulacion = "ANULACION";
 }
+
+public static class DireccionesTraspaso
+{
+    public const string APercha = "A_PERCHA";
+    public const string ABodega = "A_BODEGA";
+}
