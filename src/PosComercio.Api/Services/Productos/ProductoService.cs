@@ -97,6 +97,7 @@ public sealed class ProductoService(PosComercioDbContext db, ITenantContext tena
                     v.UbicacionesBodega != null ? v.UbicacionesBodega.Nombre : null,
                     v.ReferenciaBodega,
                     v.ReferenciaPercha,
-                    verCostos ? v.PrecioCosto : null))
+                    verCostos ? v.PrecioCosto : null,
+                    v.ImagenVarianteUrl))
                 .ToList());
 }

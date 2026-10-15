@@ -17,4 +17,5 @@ public sealed record VarianteDto(
     string? UbicacionBodega,
     string? ReferenciaBodega,
     string? ReferenciaPercha,
-    decimal? PrecioCosto);
+    decimal? PrecioCosto,
+    string? ImagenUrl);    // NUEVO: foto de la variante (ej. la caja en la bodega)

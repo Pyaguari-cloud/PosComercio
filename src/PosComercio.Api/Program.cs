@@ -20,6 +20,9 @@ using PosComercio.Api.Services.Autorizacion;
 using PosComercio.Api.Services.Ventas;
 using PosComercio.Api.Services.Catalogo;
 using PosComercio.Api.Services.Inventario;
+using Microsoft.Extensions.FileProviders;
+using PosComercio.Api.Common.Almacenamiento;
+using PosComercio.Api.Services.Fotos;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -115,6 +118,10 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddSingleton<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 
+builder.Services.AddSingleton<IProcesadorImagenes, ProcesadorImagenes>();
+builder.Services.AddSingleton<IAlmacenamientoArchivos, AlmacenamientoLocal>();
+builder.Services.AddScoped<IFotoService, FotoService>();
+
 // Una sola instancia de UsuarioActual por petición, expuesta con dos interfaces
 builder.Services.AddScoped<UsuarioActual>();
 builder.Services.AddScoped<IUsuarioActual>(sp => sp.GetRequiredService<UsuarioActual>());
@@ -154,6 +161,19 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Sirve las fotos subidas como archivos públicos: /archivos/1/productos/abc.webp
+var rutaAlmacenamiento = Path.Combine(app.Environment.ContentRootPath, AlmacenamientoLocal.CarpetaRaiz);
+Directory.CreateDirectory(rutaAlmacenamiento);
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(rutaAlmacenamiento),
+    RequestPath = AlmacenamientoLocal.RutaPublica,
+    // El nombre de cada foto es único y nunca cambia, así que el navegador puede guardarla un año
+    OnPrepareResponse = contexto =>
+        contexto.Context.Response.Headers.CacheControl = "public,max-age=31536000,immutable"
+});
 
 app.UseAuthentication();   // 1. ¿Quién eres? (lee y valida el token)
 app.UseAuthorization();    // 2. ¿Puedes entrar aquí?

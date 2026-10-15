@@ -1,118 +1,86 @@
 @host = https://localhost:7259
 
-### 1a. Login dueño
+### 1. Login dueño
 # @name dueno
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
 { "usuarioLogin": "dueno@demo.com", "password": "Demo123*" }
 
-### 1b. Login vendedor
-# @name vendedor
+### 2. Subir foto al producto 1 (Zapatilla Urbana) → 200 con imagenUrl
+POST {{host}}/api/productos/1/foto
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: multipart/form-data; boundary=LIMITE
+
+--LIMITE
+Content-Disposition: form-data; name="archivo"; filename="zapato.jpg"
+Content-Type: image/jpeg
+
+< ./pruebas/zapato.jpg
+--LIMITE--
+
+### 3. Archivo de texto disfrazado de .jpg → 400 fotos.no_es_imagen
+POST {{host}}/api/productos/1/foto
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: multipart/form-data; boundary=LIMITE
+
+--LIMITE
+Content-Disposition: form-data; name="archivo"; filename="falso.jpg"
+Content-Type: image/jpeg
+
+< ./pruebas/falso.jpg
+--LIMITE--
+
+### 4. Foto para la variante 3 (Nike 41): por ejemplo, la caja en la bodega → 200
+POST {{host}}/api/productos/variantes/3/foto
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: multipart/form-data; boundary=LIMITE
+
+--LIMITE
+Content-Disposition: form-data; name="archivo"; filename="zapato2.jpg"
+Content-Type: image/jpeg
+
+< ./pruebas/zapato2.jpg
+--LIMITE--
+
+### 5. REEMPLAZAR la foto del producto 1 → URL nueva; la foto anterior se borra del disco
+POST {{host}}/api/productos/1/foto
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: multipart/form-data; boundary=LIMITE
+
+--LIMITE
+Content-Disposition: form-data; name="archivo"; filename="zapato2.jpg"
+Content-Type: image/jpeg
+
+< ./pruebas/zapato2.jpg
+--LIMITE--
+
+### 6. Sin archivo → 400
+POST {{host}}/api/productos/1/foto
+Authorization: Bearer {{dueno.response.body.$.accessToken}}
+Content-Type: multipart/form-data; boundary=LIMITE
+
+--LIMITE--
+
+### 7. Login del bazar
+# @name bazar
 POST {{host}}/api/auth/login
 Content-Type: application/json
 
-{ "usuarioLogin": "vendedor@demo.com", "password": "Demo123*" }
+{ "usuarioLogin": "bazar@demo.com", "password": "Demo123*" }
 
-### 2. Lista "reponer percha"
-GET {{host}}/api/inventario/reponer-percha
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
+### 8. El bazar intenta poner una foto a un producto de la zapatería → 404
+POST {{host}}/api/productos/1/foto
+Authorization: Bearer {{bazar.response.body.$.accessToken}}
+Content-Type: multipart/form-data; boundary=LIMITE
 
-### 3. Pasar 1 Nike 41 a percha (con ClientGuid) → 200
-POST {{host}}/api/inventario/traspasos
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
+--LIMITE
+Content-Disposition: form-data; name="archivo"; filename="zapato.jpg"
+Content-Type: image/jpeg
 
-{ "varianteId": 3, "cantidad": 1, "direccion": "A_PERCHA", "clientGuid": "b2c3d4e5-0000-4000-8000-000000000002" }
+< ./pruebas/zapato.jpg
+--LIMITE--
 
-### 4. El MISMO traspaso otra vez → mismo movimientoId (idempotencia)
-POST {{host}}/api/inventario/traspasos
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "varianteId": 3, "cantidad": 1, "direccion": "A_PERCHA", "clientGuid": "b2c3d4e5-0000-4000-8000-000000000002" }
-
-### 5. Pasar 5 a percha cuando solo queda 1 en bodega → 409
-POST {{host}}/api/inventario/traspasos
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "varianteId": 3, "cantidad": 5, "direccion": "A_PERCHA" }
-
-### 6. "Reponer percha" otra vez: el Nike 41 ya no aparece
-GET {{host}}/api/inventario/reponer-percha
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-
-### 7. Devolverlo a bodega → 200
-POST {{host}}/api/inventario/traspasos
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "varianteId": 3, "cantidad": 1, "direccion": "A_BODEGA", "nota": "No se vendió en el día" }
-
-### 8. Compra: 6 Nike 41 (con costo nuevo de $39) y 12 Escolar 38 → 200
-POST {{host}}/api/inventario/compras
-Authorization: Bearer {{dueno.response.body.$.accessToken}}
-Content-Type: application/json
-
-{
-  "proveedor": "Distribuidora del Pacífico",
-  "items": [
-    { "varianteId": 3,  "cantidad": 6,  "destino": "BODEGA", "costoUnitario": 39.00 },
-    { "varianteId": 10, "cantidad": 12, "destino": "BODEGA" }
-  ]
-}
-
-### 9. El vendedor intenta registrar una compra → 403
-POST {{host}}/api/inventario/compras
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "items": [ { "varianteId": 3, "cantidad": 1, "destino": "BODEGA" } ] }
-
-### 10. El vendedor reporta un daño SIN PIN → 403 autorizacion.requerida
-POST {{host}}/api/inventario/ajustes
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "varianteId": 9, "tipo": "DANADO", "ubicacion": "PERCHA", "cantidad": 1, "nota": "Suela despegada" }
-
-### 11. El mismo daño CON el PIN del dueño → 200
-POST {{host}}/api/inventario/ajustes
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "varianteId": 9, "tipo": "DANADO", "ubicacion": "PERCHA", "cantidad": 1, "nota": "Suela despegada", "pinAutorizacion": "1357" }
-
-### 12. El dueño encontró un par en bodega (no necesita PIN) → 200
-POST {{host}}/api/inventario/ajustes
-Authorization: Bearer {{dueno.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "varianteId": 9, "tipo": "ENCONTRADO", "ubicacion": "BODEGA", "cantidad": 1, "nota": "Estaba en una caja equivocada" }
-
-### 13. Conteo físico de la Mochila: el dueño cuenta 3 en percha y 2 en bodega
-POST {{host}}/api/inventario/conteos
-Authorization: Bearer {{dueno.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "varianteId": 15, "conteoPercha": 3, "conteoBodega": 2, "nota": "Conteo de fin de mes" }
-
-### 14. El mismo conteo otra vez → sin diferencias
-POST {{host}}/api/inventario/conteos
-Authorization: Bearer {{dueno.response.body.$.accessToken}}
-Content-Type: application/json
-
-{ "varianteId": 15, "conteoPercha": 3, "conteoBodega": 2 }
-
-### 15. Stock bajo
-GET {{host}}/api/inventario/stock-bajo
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-
-### 16. Kardex del Nike 41: toda su historia
-GET {{host}}/api/inventario/variantes/3/kardex
-Authorization: Bearer {{vendedor.response.body.$.accessToken}}
-
-### 17. El costo del Nike 41 se actualizó a $39 (visto por el dueño)
-GET {{host}}/api/productos/1
+### 9. Quitar la foto del producto 1 → 200 sin imagenUrl, y el archivo se borra
+DELETE {{host}}/api/productos/1/foto
 Authorization: Bearer {{dueno.response.body.$.accessToken}}
