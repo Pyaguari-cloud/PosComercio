@@ -95,27 +95,31 @@ public static class ServiciosSeguridad
 
     private static void AddLimitesDePeticiones(this IServiceCollection services)
     {
+        services.AddOptions<LimitesOptions>()
+            .BindConfiguration(LimitesOptions.Seccion)
+            .ValidateDataAnnotations();
+
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-            // Login: 5 intentos por minuto por IP
+            // Login: N intentos por minuto por IP
             options.AddPolicy(PoliticasRateLimit.Login, httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "desconocida",
-                    factory: _ => VentanaDeCincoPorMinuto()));
+                    factory: _ => VentanaPorMinuto(httpContext)));
 
-            // PIN: 5 intentos por minuto por negocio + dispositivo
+            // PIN: N intentos por minuto por negocio + dispositivo
             options.AddPolicy(PoliticasRateLimit.Pin, httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     partitionKey: $"{httpContext.User.FindFirst(ClaimsPos.NegocioId)?.Value}:{httpContext.Connection.RemoteIpAddress}",
-                    factory: _ => VentanaDeCincoPorMinuto()));
+                    factory: _ => VentanaPorMinuto(httpContext)));
         });
     }
 
-    private static FixedWindowRateLimiterOptions VentanaDeCincoPorMinuto() => new()
+    private static FixedWindowRateLimiterOptions VentanaPorMinuto(HttpContext httpContext) => new()
     {
-        PermitLimit = 5,
+        PermitLimit = httpContext.RequestServices.GetRequiredService<IOptions<LimitesOptions>>().Value.IntentosPorMinuto,
         Window = TimeSpan.FromMinutes(1),
         QueueLimit = 0
     };
